@@ -63,7 +63,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
   results = tf.keras.layers.Add()([x, results])
   return tf.keras.Model(inputs = (x, emb), outputs = results)
 
-def AttentionBlock(input_shape, num_heads = -1, num_head_channels = -1):
+def AttentionBlock(input_shape, num_heads):
   x = tf.keras.Input(input_shape)
   skip = tf.keras.layers.Reshape((-1,input_shape[-1]))(x) # x.shape = (batch, length, c)
   results = tf.keras.layers.GroupNormalization()(skip)
@@ -85,6 +85,20 @@ def AttentionBlock(input_shape, num_heads = -1, num_head_channels = -1):
   results = tf.keras.Reshape(input_shape)(results) # results.shape = (batch, h, w, c)
   return tf.keras.Model(inputs = x, outputs = results)
 
+def CrossAttention(input_shape):
+  x = tf.keras.Input(input_shape) # x.shape = (batch, h )
+
+def SpatialTransformer(input_shape, num_heads, dim_head, depth, dropout, use_context = False):
+  x = tf.keras.Input(input_shape) # x.shape = (batch, h, w, c)
+  if use_context:
+    context = tf.keras.Input(input_shape) # context.shape = (batch, h, w, c)
+  skip = tf.keras.layers.Identity()(x)
+  results = tf.keras.layers.GroupNormalization()(x)
+  results = tf.keras.layers.Dense(num_heads * dim_head)(results) # results.shape = (batch, h, w, d)
+  results = tf.keras.layers.Reshape((-1, num_heads * dim_head))(results) # results.shape = (batch, h*w, d)
+  for d in range(depth):
+    results = 
+
 def UNet(input_shape, use_context = False, **kwargs):
   image_size = kwargs.get('image_size', 32)
   in_channels = kwargs.get('in_channels', 4)
@@ -101,6 +115,7 @@ def UNet(input_shape, use_context = False, **kwargs):
   num_head_channels = kwargs.get('num_head_channels', 32)
   max_period = kwargs.get('max_period', 10000)
   use_scale_shift_norm = kwargs.get('use_scale_shift_norm', False)
+  transformer_depth = kwargs.get('transformer_depth', 1)
   
   h = tf.keras.Input(input_shape) # h.shape = (batch, h, w, c)
   if use_context:
@@ -136,5 +151,5 @@ def UNet(input_shape, use_context = False, **kwargs):
       ch = mult * model_channels
       for ds in attention_resolution:
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
-
+        
         
