@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import numpy as np
 import tensorflow as tf
 
 def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_norm = False, resample = None):
@@ -64,11 +65,25 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
 
 def AttentionBlock(input_shape, num_heads = -1, num_head_channels = -1):
   x = tf.keras.Input(input_shape)
-  results = tf.keras.layers.Reshape((-1,input_shape[-1]))(x) # x.shape = (batch, h * w, c)
-  results = tf.keras.layers.GroupNormalization()(results)
-  results = tf.keras.layers.Dense(input_shape[-1], 3 * input_shape[-1])(results) # results.shape = (batch, h * w, 3 * c)
-  q,k,v = tf.keras.layers.Lambda(lambda x: tf.split(x, 3, axis = -1))(results) # q.shape = k.shape = v.shape = (batch, h * w, c)
-  
+  skip = tf.keras.layers.Reshape((-1,input_shape[-1]))(x) # x.shape = (batch, length, c)
+  results = tf.keras.layers.GroupNormalization()(skip)
+  results = tf.keras.layers.Dense(input_shape[-1], 3 * input_shape[-1])(results) # results.shape = (batch, length, 3 * c)
+  q,k,v = tf.keras.layers.Lambda(lambda x: tf.split(x, 3, axis = -1))(results) # q.shape = k.shape = v.shape = (batch, length, c)
+  q = tf.keras.layers.Reshape((-1, num_heads, input_shape[-1] // num_heads))(q) # q.shape = (batch, length, h, c // h)
+  q = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,1,3)))(q) # q.shape = (batch, h, length, c // h)
+  k = tf.keras.layers.Reshape((-1, num_heads, input_shape[-1] // num_heads))(k) # k.shape = (batch, length, h, c // h)
+  k = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,1,3)))(k) # k.shape = (batch, h, length, c // h)
+  v = tf.keras.layers.Reshape((-1, num_heads, input_shape[-1] // num_heads))(v) # v.shape = (batch, length, h, c // h)
+  v = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,1,3)))(v) # v.shape = (batch, h, length, c // h)
+  weight = tf.keras.layers.Lambda(lambda x, s: tf.linalg.matmul(x[0], x[1], transpose_b = True) * s, arguments = {'s': 1 / np.sqrt(input_shape[-1] // num_heads)})([q,k]) # weight.shape = (batch, h, length, length)
+  weight = tf.keras.layers.Softmax(axis = -1)(weight) # weight.shape = (batch, h, length, length)
+  results = tf.keras.layers.Lambda(lambda x: tf.linalg.matmul(x[0],x[1]))([weight, v]) # a.shape = (batch,h,length,c//h)
+  results = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,1,3)))(results) # a.shape = (batch, length,h,c//h)
+  results = tf.keras.layers.Reshape((-1, input_shape[-1]))(results) # a.shape = (batch, length, c)
+  results = tf.keras.layers.Dense(input_shape[-1], kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results) # results.shape = (batch, length, c)
+  results = tf.keras.layers.Add()([skip, results]) # results.shape = (batch, length, c)
+  results = tf.keras.Reshape(input_shape)(results) # results.shape = (batch, h, w, c)
+  return tf.keras.Model(inputs = x, outputs = results)
 
 def UNet(input_shape, use_context = False, **kwargs):
   image_size = kwargs.get('image_size', 32)
