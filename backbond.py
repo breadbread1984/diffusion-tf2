@@ -3,7 +3,7 @@
 import tensorflow as tf
 
 def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_norm = False, resample = None):
-  assert resample in {'up','down',None}
+  assert resample in {'up','down',False}
   x = tf.keras.Input(input_shape)
   emb = tf.keras.Input((emb_channels,)) # emb.shape = (batch, emb_channels)
   results = tf.keras.layers.GroupNormalization()(x)
@@ -77,6 +77,7 @@ def UNet(input_shape, use_context = False, **kwargs):
   num_heads = kwargs.get('num_heads', -1)
   num_head_channels = kwargs.get('num_head_channels', -1)
   max_period = kwargs.get('max_period', 10000)
+  use_scale_shift_norm = kwargs.get('use_scale_shift_norm', False)
   
   h = tf.keras.Input(input_shape) # h.shape = (batch, h, w, c)
   if use_context:
@@ -105,6 +106,8 @@ def UNet(input_shape, use_context = False, **kwargs):
   else:
     raise Exception('unsupported input shape!')
   # block 2...
+  ch = model_channels
   for level, mult in enumerate(channel_mult):
     for _ in range(num_res_blocks):
-      
+      results = ResBlock(input_shape = input_shape[:-1] + [model_channels,], out_channels = mult * model_channels, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb])
+      ch = mult * model_channels
