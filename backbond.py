@@ -166,11 +166,15 @@ def UNet(input_shape, **kwargs):
   if num_classes is not None:
     class_emb = tf.keras.layers.Embedding(num_classes, model_channels * 4)(y) # class_emb.shape = (batch, model_channels * 4)
     emb = tf.keras.layers.Add()([emb, class_emb]) # emb.shape = (batch, model_channels * 4)
+  # 2.1) input blocks
+  hiddens = list()
+  input_block_chans = [model_channels]
   # input block 1
   tensor_dim = len(input_shape) - 1
   results = {1: tf.keras.layers.Conv1D,
              2: tf.keras.layers.Conv2D,
              3: tf.keras.layers.Conv3D}[tensor_dim](model_channels, kernel_size = 3, padding = 'same')(x) # results.shape = input_shape[:-1] + [model_channels]
+  hiddens.append(results)
   # input block 2...
   ch = model_channels
   for level, mult in enumerate(channel_mult):
@@ -183,6 +187,8 @@ def UNet(input_shape, **kwargs):
           results = SpatialTransformer(input_shape[:-1] + [ch,], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results]) # results.shape = input_shape[:-1] + [mult * model_channels]
         else:
           results = AttentionBlock(input_shape[:-1] + [ch,], num_heads)(results) # results.shape = input_shape[:-1] + [mult * model_channels]
+      hiddens.append(results)
+      input_block_chans.append(ch)
     if level != len(channel_mult) - 1:
       if resblock_updown:
         results = ResBlock(input_shape[:-1] + [ch,], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'down')([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
@@ -192,12 +198,16 @@ def UNet(input_shape, **kwargs):
         results = {1: tf.keras.layers.Conv1D,
                    2: tf.keras.layers.Conv2D,
                    3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, strides = strides, padding = 'same')(results) # results.shape = input_shape[:-1] + [mutl * model_channels]
-  # middle block
+      hiddens.append(results)
+      input_block_chans.append(ch)
+  # 2.2) middle block
   results = ResBlock(input_shape[:-1] + [ch,], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [ch,]
   if use_spatial_transformer:
     results = SpatialTransformer(input_shape[:-1] + [ch,], num_heads, dim_head, transformer_depth, dropout. context_dim)([results, context] if context_dim is not None else [results]) # results.shape = input_shape[:-1] + [ch,]
   else:
     results = AttentionBlock(input_shape[:-1] + [ch,], num_heads)(results) # results.shape = input_shape[:-1] + [ch,]
   results = ResBlock(input_shape[:-1] + [ch,], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [ch,]
-  # output blocks
-  results = 
+  # 2.3) output blocks
+  for level, mult in list(enumerate(channel_mult))[::-1]:
+    for i in range(num_res_blocks + 1):
+      
