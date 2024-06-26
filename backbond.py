@@ -148,6 +148,7 @@ def UNet(input_shape, **kwargs):
   context_dim = kwargs.get('context_dim', None)
   use_spatial_transformer = kwargs.get('use_spatial_transformer', True)
   resblock_updown = kwargs.get('resblock_updown', False)
+  n_embed = kwargs.get('n_embed', None)
   
   x = tf.keras.Input(input_shape) # x.shape = (batch, h, w, c)
   if context_dim is not None:
@@ -221,7 +222,21 @@ def UNet(input_shape, **kwargs):
         else:
           results = AttentionBlock(input_shape[:-1] + [ch,], num_heads)(results)
       if level and i == num_res_blocks:
-        ich = input_block_chans.pop()
-        h = tf.keras.layers.concatenate(axis = -1)([results, hiddens.pop()])
         if resblock_updown:
-          results = ResBlock()
+          results = ResBlock(input_shape[:-1] + [ch,], ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'up')([results, emb])
+        else:
+          tensor_dim = len(input_shape) - 1
+          size = 2 if tensor_dim in {1,2} else (1,2,2)
+          results = {1: tf.keras.layers.UpSampling1D,
+                     2: tf.keras.layers.UpSampling2D,
+                     3: tf.keras.layers.UpSampling3D}[tensor_dim](size = size, interpolation = 'nearest')(results)
+          resutls = {1: tf.keras.layers.Conv1D,
+                     2: tf.keras.layers.Conv2D,
+                     3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, padding = 'same')(results)
+  if n_embed is not None:
+    results = tf.keras.layers.GroupNormalization()(results)
+    results = tf.keras.layers.Dense(n_embed)(results)
+  else:
+    results = tf.keras.layers.GroupNormalization()(results)
+    results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(results)
+    # TODO
