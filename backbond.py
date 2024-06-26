@@ -31,12 +31,10 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
     elif len(input_shape - 1) == 3:
       results = tf.keras.layers.AveragePooling3D(pool_size = (1,2,2), strides = (1,2,2), padding = 'same')(results)
       results = tf.keras.layers.AveragePooling3D(pool_size = (1,2,2), strides = (1,2,2), padding = 'same')(results)
-  if len(input_shape - 1) == 1:
-    results = tf.keras.layers.Conv1D(out_channels, kernel_size = (3,), padding = 'same')(results) # results.shape = (batch, w, out_channels)
-  elif len(input_shape - 1) == 2:
-    results = tf.keras.layers.Conv2D(out_channels, kernel_size = (3,3,), padding = 'same')(results) # results.shape = (batch, h, w, out_channels)
-  elif len(input_shape - 1) == 3:
-    results = tf.keras.layers.Conv3D(out_channels, kernel_size = (3,3,3,), padding = 'same')(results) # results.shape = (batch, t, h, w, out_channels)
+  tensor_dim = len(input_shape) - 1
+  results = {1: tf.keras.layers.Conv1D,
+             2: tf.keras.layers.Conv2D,
+             3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same')(results) # results.shape = input_shape[:-1] + [out_channels]
   emb_results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(emb)
   emb_results = tf.keras.layers.Dense(out_channels * 2 if use_scale_shift_norm else out_channels)(emb_results) # emb_results.shape = (batch, out_channels)
   if len(input_shape - 1) == 1:
@@ -54,12 +52,10 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
     results = tf.keras.layers.GroupNormalization()(results) # results.shape = (batch, h, w, out_channels)
   results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(results)
   results = tf.keras.layers.Dropout(rate = dropout)(results)
-  if len(input_shape - 1) == 1:
-    results = tf.keras.layers.Conv1D(out_channels, kernel_size = (3,), padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
-  elif len(input_shape - 1) == 2:
-    results = tf.keras.layers.Conv2D(out_channels, kernel_size = (3,3,), padding = 'same', kernel_initializer = tf.keras.initializer.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
-  elif len(input_shape - 1) == 3:
-    results = tf.keras.layers.Conv3D(out_channels, kernel_size = (3,3,3,), padding = 'same', kernel_initializer = tf.keras.initializer.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
+  tensor_dim = len(input_shape) - 1
+  results = {1: tf.keras.layers.Conv1D,
+             2: tf.keras.layers.Conv2D,
+             3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results) # results.shape = input_shape[:-1] + [out_channels]
   results = tf.keras.layers.Add()([x, results])
   return tf.keras.Model(inputs = (x, emb), outputs = results)
 '''
@@ -191,5 +187,4 @@ def UNet(input_shape, **kwargs):
       ch = mult * model_channels
       for ds in attention_resolution:
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
-        
-        
+         
