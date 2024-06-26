@@ -37,12 +37,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
              3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same')(results) # results.shape = input_shape[:-1] + [out_channels]
   emb_results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(emb)
   emb_results = tf.keras.layers.Dense(out_channels * 2 if use_scale_shift_norm else out_channels)(emb_results) # emb_results.shape = (batch, out_channels)
-  if len(input_shape - 1) == 1:
-    emb_results = tf.keras.layers.Lambda(lambda x: tf.reshape(tf.shape(x)[0],1,tf.shape(x)[-1]))(emb_results) # emb_results.shape = (batch, 1, out_channels)
-  elif len(input_shape - 1) == 2:
-    emb_results = tf.keras.layers.Lambda(lambda x: tf.reshape(tf.shape(x)[0],1,1,tf.shape(x)[-1]))(emb_results) # emb_results.shape = (batch, 1, 1, out_channels)
-  elif len(input_shape - 1) == 3:
-    emb_results = tf.keras.layers.Lambda(lambda x: tf.reshape(tf.shape(x)[0],1,1,1,tf.shape(x)[-1]))(emb_results) # emb_results.shape = (batch, 1, 1, 1, out_channels)
+  emb_results = tf.keras.layers.Reshape([1,] * (len(input_shape) - 1) + [emb_results.shape[-1],])(emb_results) # emb_results.shape = (batch, 1,..,1, out_channels)
   if use_scale_shift_norm:
     results = tf.keras.layers.GroupNormalization()(results) # results.shape = (batch, h, w, out_channels)
     scale, shift = tf.keras.layers.Lambda(lambda x: tf.split(x, 2, axis = -1))(emb_results) # scale.shape = shift.shape = (batch, 1, 1, out_channels)
