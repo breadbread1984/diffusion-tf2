@@ -53,7 +53,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
              3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results) # results.shape = input_shape[:-1] + [out_channels]
   results = tf.keras.layers.Add()([x, results])
   return tf.keras.Model(inputs = (x, emb), outputs = results)
-'''
+
 def AttentionBlock(input_shape, num_heads):
   x = tf.keras.Input(input_shape)
   skip = tf.keras.layers.Reshape((-1,input_shape[-1]))(x) # x.shape = (batch, length, c)
@@ -75,7 +75,7 @@ def AttentionBlock(input_shape, num_heads):
   results = tf.keras.layers.Add()([skip, results]) # results.shape = (batch, length, c)
   results = tf.keras.Reshape(input_shape)(results) # results.shape = (batch, h, w, c)
   return tf.keras.Model(inputs = x, outputs = results)
-'''
+
 def CrossAttention(query_dim, num_heads, dim_head, dropout, context_dim = None):
   x = tf.keras.Input((None, query_dim)) # x.shape = (batch, query_len, query_dim)
   if context_dim is not None:
@@ -127,10 +127,10 @@ def SpatialTransformer(input_shape, num_heads, dim_head, depth, dropout, context
   results = tf.keras.layers.Dense(num_heads * dim_head)(results) # results.shape = (batch, h, w, d)
   results = tf.keras.layers.Reshape((-1, num_heads * dim_head))(results) # results.shape = (batch, h*w, d)
   for d in range(depth):
-    results = BasictransformerBlock(num_heads * dim_head, num_heads, dim_head, dropout, context_dim)([results, context] if context_dim is not None else [results,])
-  results = tf.keras.layers.Reshape(input_shape)(results)
-  results = tf.keras.layers.Dense(input_shape[-1], kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
-  results = tf.keras.layers.Add()([results, x])
+    results = BasicTransformerBlock(num_heads * dim_head, num_heads, dim_head, dropout, context_dim)([results, context] if context_dim is not None else [results,])
+  results = tf.keras.layers.Reshape(input_shape)(results) # results.shape = (batch, h, w, d)
+  results = tf.keras.layers.Dense(input_shape[-1], kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results) # resutls.shape = (batch, h, w, c)
+  results = tf.keras.layers.Add()([results, x]) # results.shape = (batch, h, w, c)
   return tf.keras.Model(inputs = (x, context) if context_dim is not None else x, outputs = results)
 
 def UNet(input_shape, **kwargs):
@@ -151,8 +151,10 @@ def UNet(input_shape, **kwargs):
   use_scale_shift_norm = kwargs.get('use_scale_shift_norm', False)
   transformer_depth = kwargs.get('transformer_depth', 1)
   context_dim = kwargs.get('context_dim', None)
+  use_spatial_transformer = kwargs.get('use_spatial_transformer', True)
+  resblock_updown = kwargs.get('resblock_updown', False)
   
-  h = tf.keras.Input(input_shape) # h.shape = (batch, h, w, c)
+  x = tf.keras.Input(input_shape) # x.shape = (batch, h, w, c)
   if context_dim is not None:
     context = tf.keras.Input((None, context_dim)) # context.shape = (batch, context_len, c)
   timesteps = tf.keras.Input(()) # timesteps.shape = (batch,)
@@ -178,8 +180,16 @@ def UNet(input_shape, **kwargs):
   ch = model_channels
   for level, mult in enumerate(channel_mult):
     for _ in range(num_res_blocks):
-      results = ResBlock(input_shape = input_shape[:-1] + [ch,], out_channels = mult * model_channels, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb])
+      results = ResBlock(input_shape[:-1] + [ch,], out_channels = mult * model_channels, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
       ch = mult * model_channels
       for ds in attention_resolution:
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
-         
+        if use_spatial_transformer:
+          results = SpatialTransformer(input_shape[:-1] + [ch,], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results]) # results.shape = input_shape[:-1] + [mult * model_channels]
+        else:
+          results = AttentionBlock(input_shape[:-1] + [ch,], num_heads)(results) # results.shape = input_shape[:-1] + [mult * model_channels]
+    if level != len(channel_mult) - 1:
+      if resblock_updown:
+        results = ResBlock(input_shape[:-1] + [ch,], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'down')([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
+      else:
+        results = 
