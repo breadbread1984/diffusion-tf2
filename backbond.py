@@ -10,27 +10,22 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
   results = tf.keras.layers.GroupNormalization()(x)
   results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(x)
   if resample == 'up':
-    if len(input_shape) - 1 == 1:
-      results = tf.keras.layers.UpSampling1D(size = (2,), interpolation = 'nearest')(results)
-      results = tf.keras.layers.UpSampling1D(size = (2,), interpolation = 'nearest')(results)
-    elif len(input_shape) - 1 == 2:
-      results = tf.keras.layers.UpSampling2D(size = (2,2), interpolation = 'nearest')(results)
-      results = tf.keras.layers.UpSampling2D(size = (2,2), interpolation = 'nearest')(results)
-    elif len(input_shape) - 1 == 3:
-      results = tf.keras.layers.UpSampling3D(size = (1,2,2), interpolation = 'nearest')(results)
-      results = tf.keras.layers.UpSampling3D(size = (1,2,2), interpolation = 'nearest')(results)
-    else:
-      raise Exception('unknown input dimension!')
+    tensor_dim = len(input_shape) - 1
+    size = 2 if tensor_dim in {1,2} else (1,2,2)
+    Op = {1: tf.keras.layers.UpSampling1D,
+          2: tf.keras.layers.UpSampling2D,
+          3: tf.keras.layers.UpSampling3D}[tensor_dim]
+    results = Op(size = size, interpolation = 'nearest')(results)
+    results = Op(size = size, interpolation = 'nearest')(results)
   elif resample == 'down':
-    if len(input_shape) - 1 == 1:
-      results = tf.keras.layers.AveragePooling1D(pool_size = (2,), strides = (2,), padding = 'same')(results)
-      results = tf.keras.layers.AveragePooling1D(pool_size = (2,), strides = (2,), padding = 'same')(results)
-    elif len(input_shape) - 1 == 2:
-      results = tf.keras.layers.AveragePooling2D(pool_size = (2,2), strides = (2,2), padding = 'same')(results)
-      results = tf.keras.layers.AveragePooling2D(pool_size = (2,2), strides = (2,2), padding = 'same')(results)
-    elif len(input_shape) - 1 == 3:
-      results = tf.keras.layers.AveragePooling3D(pool_size = (1,2,2), strides = (1,2,2), padding = 'same')(results)
-      results = tf.keras.layers.AveragePooling3D(pool_size = (1,2,2), strides = (1,2,2), padding = 'same')(results)
+    tensor_dim = len(input_shape) - 1
+    pool_size = 2 if tensor_dim in {1,2} else (1,2,2)
+    strides = 2 if tensor_dim in {1,2} else (1,2,2)
+    Op = {1: tf.keras.layers.AveragePooling1D,
+          2: tf.keras.layers.AveragePooling2D,
+          3: tf.keras.layers.AveragePooling3D}[tensor_dim]
+    results = Op(pool_size = pool_size, strides = strides, padding = 'same')(results)
+    results = Op(pool_size = pool_size, strides = strides, padding = 'same')(results)
   tensor_dim = len(input_shape) - 1
   results = {1: tf.keras.layers.Conv1D,
              2: tf.keras.layers.Conv2D,
@@ -171,12 +166,12 @@ def UNet(input_shape, **kwargs):
   if num_classes is not None:
     class_emb = tf.keras.layers.Embedding(num_classes, model_channels * 4)(y) # class_emb.shape = (batch, model_channels * 4)
     emb = tf.keras.layers.Add()([emb, class_emb]) # emb.shape = (batch, model_channels * 4)
-  # block 1
+  # input block 1
   tensor_dim = len(input_shape) - 1
   results = {1: tf.keras.layers.Conv1D,
              2: tf.keras.layers.Conv2D,
              3: tf.keras.layers.Conv3D}[tensor_dim](model_channels, kernel_size = 3, padding = 'same')(x) # results.shape = input_shape[:-1] + [model_channels]
-  # block 2...
+  # input block 2...
   ch = model_channels
   for level, mult in enumerate(channel_mult):
     for _ in range(num_res_blocks):
@@ -192,4 +187,10 @@ def UNet(input_shape, **kwargs):
       if resblock_updown:
         results = ResBlock(input_shape[:-1] + [ch,], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'down')([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
       else:
-        results = 
+        tensor_dim = len(input_shape) - 1
+        strides = 2 if tensor_dim in {1,2} else (1,2,2)
+        results = {1: tf.keras.layers.Conv1D,
+                   2: tf.keras.layers.Conv2D,
+                   3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, strides = strides, padding = 'same')(results) # results.shape = input_shape[:-1] + [mutl * model_channels]
+  # middle block
+
