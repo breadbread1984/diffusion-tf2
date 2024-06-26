@@ -239,4 +239,8 @@ def UNet(input_shape, **kwargs):
   else:
     results = tf.keras.layers.GroupNormalization()(results)
     results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(results)
-    # TODO
+    tensor_dim = len(input_shape) - 1
+    results = {1: tf.keras.layers.Conv1D,
+               2: tf.keras.layers.Conv2D,
+               3: tf.keras.layers.Conv3D}[tensor_dim](out_channel, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
+  return tf.keras.Model(inputs = (x, context, timesteps, y) if context_dim is not None else (x, timesteps, y), outputs = results)
