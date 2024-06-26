@@ -62,7 +62,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
     results = tf.keras.layers.Conv3D(out_channels, kernel_size = (3,3,3,), padding = 'same', kernel_initializer = tf.keras.initializer.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
   results = tf.keras.layers.Add()([x, results])
   return tf.keras.Model(inputs = (x, emb), outputs = results)
-
+'''
 def AttentionBlock(input_shape, num_heads):
   x = tf.keras.Input(input_shape)
   skip = tf.keras.layers.Reshape((-1,input_shape[-1]))(x) # x.shape = (batch, length, c)
@@ -84,22 +84,65 @@ def AttentionBlock(input_shape, num_heads):
   results = tf.keras.layers.Add()([skip, results]) # results.shape = (batch, length, c)
   results = tf.keras.Reshape(input_shape)(results) # results.shape = (batch, h, w, c)
   return tf.keras.Model(inputs = x, outputs = results)
+'''
+def CrossAttention(query_dim, num_heads, dim_head, dropout, context_dim = None):
+  x = tf.keras.Input((None, query_dim)) # x.shape = (batch, query_len, query_dim)
+  if context_dim is not None:
+    context = tf.keras.Input((None, context_dim)) # context.shape = (batch, context_len, context_dim)
+  q = tf.keras.layers.Dense(num_head * dim_head, use_bias = False)(x) # q.shape = (batch, query_len, hn * hd)
+  context_ = context if use_context else x
+  k = tf.keras.layers.Dense(num_head * dim_head, use_bias = False)(context_) # k.shape = (batch, context_len, hn * hd)
+  v = tf.keras.layers.Dense(num_head * dim_head, use_bias = False)(context_) # v.shape = (batch, context_len, hn * hd)
+  q = tf.keras.layers.Reshape((-1, num_heads, dim_head))(q) # q.shape = (batch, query_len, hn, hd)
+  k = tf.keras.layers.Reshape((-1, num_heads, dim_head))(k) # k.shape = (batch, context_len, hn, hd)
+  v = tf.keras.layers.Reshape((-1, num_heads, dim_head))(v) # v.shape = (batch, context_len, hn, hd)
+  q = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,1,3)))(q) # q.shape = (batch, hn, query_len, hd)
+  k = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,1,3)))(k) # k.shape = (batch, hn, context_len, hd)
+  v = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,1,3)))(v) # v.shape = (batch, hn, context_len, hd)
+  qk = tf.keras.layers.Lambda(lambda x, s: s * tf.linalg.matmul(x[0],x[1],transpose_b = True), arguments = {'s': dim_head ** -0.5})([q,k]) # qk.shape = (batch, head, query_len, context_len)
+  attn = tf.keras.layers.Softmax(axis = -1)(qk)
+  out = tf.keras.layers.Lambda(lambda x: tf.linalg.matmul(x[0],x[1]))([attn, v]) # out.shape = (batch, hn, query_len, hd)
+  out = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,1,3)))(out) # out.shape = (batch, query_len, hn, hd)
+  out = tf.keras.layers.Reshape((-1, num_heads * dim_head))(out) # out.shape = (batch, query_len, hn * hd)
+  out = tf.keras.layers.Dense(query_dim)(out) # out.shape = (batch, query_len, query_dim)
+  out = tf.keras.layers.Dropout(rate = dropout)(out)
+  return tf.keras.Model(inputs = (x, context) if context_dim is not None else x, outputs = out)
 
-def CrossAttention(input_shape):
-  x = tf.keras.Input(input_shape) # x.shape = (batch, h )
+def BasicTransformerBlock(dim, num_heads, dim_head, dropout, context_dim = None):
+  x = tf.keras.Input((None, dim)) # x.shape = (batch, query_len, dim)
+  if context_dim is not None:
+    context = tf.keras.Input((None, context_dim)) # context.shape = (batch, context_len, context_dim)
+  skip = x
+  results = tf.keras.layers.LayerNormalization()(skip)
+  results = CrossAttention(dim, num_heads, dim_head, dropout)(results)
+  results = tf.keras.layers.Add()([skip, results])
+  skip = results
+  results = tf.keras.layers.LayerNormalization()(skip)
+  results = CrossAttention(dim, num_heads, dim_head, dropout, context_dim = context_dim)([results, context] if context_dim is not None else [results,])
+  results = tf.keras.layers.Add()([skip, results])
+  skip = results
+  results = tf.keras.layers.LayerNormalization()(skip)
+  results = tf.keras.layers.Dense(4 * dim, activation = tf.keras.activations.gelu)(results)
+  results = tf.keras.layers.Dropout(rate = dropout)(results)
+  results = tf.keras.l;ayers.Dense(dim)(results)
+  results = tf.keras.layers.Add()([skip, results])
+  return tf.keras.Model(inputs = (x, context) if context_dim is not None else x, outputs = results)
 
-def SpatialTransformer(input_shape, num_heads, dim_head, depth, dropout, use_context = False):
+def SpatialTransformer(input_shape, num_heads, dim_head, depth, dropout, context_dim = None):
   x = tf.keras.Input(input_shape) # x.shape = (batch, h, w, c)
-  if use_context:
-    context = tf.keras.Input(input_shape) # context.shape = (batch, h, w, c)
-  skip = tf.keras.layers.Identity()(x)
+  if context_dim is not None:
+    context = tf.keras.Input((None, context_dim)) # context.shape = (batch, h, w, c)
   results = tf.keras.layers.GroupNormalization()(x)
   results = tf.keras.layers.Dense(num_heads * dim_head)(results) # results.shape = (batch, h, w, d)
   results = tf.keras.layers.Reshape((-1, num_heads * dim_head))(results) # results.shape = (batch, h*w, d)
   for d in range(depth):
-    results = 
+    results = BasictransformerBlock(num_heads * dim_head, num_heads, dim_head, dropout, context_dim)([results, context] if context_dim is not None else [results,])
+  results = tf.keras.layers.Reshape(input_shape)(results)
+  results = tf.keras.layers.Dense(input_shape[-1], kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
+  results = tf.keras.layers.Add()([results, x])
+  return tf.keras.Model(inputs = (x, context) if context_dim is not None else x, outputs = results)
 
-def UNet(input_shape, use_context = False, **kwargs):
+def UNet(input_shape, **kwargs):
   image_size = kwargs.get('image_size', 32)
   in_channels = kwargs.get('in_channels', 4)
   model_channels = kwargs.get('model_channels', 256)
@@ -116,10 +159,11 @@ def UNet(input_shape, use_context = False, **kwargs):
   max_period = kwargs.get('max_period', 10000)
   use_scale_shift_norm = kwargs.get('use_scale_shift_norm', False)
   transformer_depth = kwargs.get('transformer_depth', 1)
+  context_dim = kwargs.get('context_dim', None)
   
   h = tf.keras.Input(input_shape) # h.shape = (batch, h, w, c)
-  if use_context:
-    context = tf.keras.Input(input_shape) # context.shape = (batch, h, w, c)
+  if context_dim is not None:
+    context = tf.keras.Input((None, context_dim)) # context.shape = (batch, context_len, c)
   timesteps = tf.keras.Input(()) # timesteps.shape = (batch,)
   if num_classes is not None:
     y = tf.keras.Input(()) # y.shape = (batch,)
@@ -135,14 +179,10 @@ def UNet(input_shape, use_context = False, **kwargs):
     class_emb = tf.keras.layers.Embedding(num_classes, model_channels * 4)(y) # class_emb.shape = (batch, model_channels * 4)
     emb = tf.keras.layers.Add()([emb, class_emb]) # emb.shape = (batch, model_channels * 4)
   # block 1
-  if len(input_shape) - 1 == 1:
-    results = tf.keras.layers.Conv1D(model_channels, kernel_size = (3,), padding = 'same')(x) # results.shape = input_shape[:-1] + [model_channels]
-  elif len(input_shape) - 1 == 2:
-    results = tf.keras.layers.Conv2D(model_channels, kernel_size = (3,3), padding = 'same')(x) # results.shape = input_shape[:-1] + [model_channels]
-  elif len(input_shape) - 1 == 3:
-    results = tf.keras.layers.Conv3D(modul_channels, kernel_size = (3,3,3), padding = 'same')(x) # results.shape = input_shape[:-1] + [model_channels]
-  else:
-    raise Exception('unsupported input shape!')
+  tensor_dim = len(input_shape) - 1
+  results = {1: tf.keras.layers.Conv1D,
+             2: tf.keras.layers.Conv2D,
+             3: tf.keras.layers.Conv3D}[tensor_dim](model_channels, kernel_size = 3, padding = 'same')(x) # results.shape = input_shape[:-1] + [model_channels]
   # block 2...
   ch = model_channels
   for level, mult in enumerate(channel_mult):
