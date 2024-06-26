@@ -10,25 +10,25 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
   results = tf.keras.layers.GroupNormalization()(x)
   results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(x)
   if resample == 'up':
-    if len(input_shape - 1) == 1:
+    if len(input_shape) - 1 == 1:
       results = tf.keras.layers.UpSampling1D(size = (2,), interpolation = 'nearest')(results)
       results = tf.keras.layers.UpSampling1D(size = (2,), interpolation = 'nearest')(results)
-    elif len(input_shape - 1) == 2:
+    elif len(input_shape) - 1 == 2:
       results = tf.keras.layers.UpSampling2D(size = (2,2), interpolation = 'nearest')(results)
       results = tf.keras.layers.UpSampling2D(size = (2,2), interpolation = 'nearest')(results)
-    elif len(input_shape - 1) == 3:
+    elif len(input_shape) - 1 == 3:
       results = tf.keras.layers.UpSampling3D(size = (1,2,2), interpolation = 'nearest')(results)
       results = tf.keras.layers.UpSampling3D(size = (1,2,2), interpolation = 'nearest')(results)
     else:
       raise Exception('unknown input dimension!')
   elif resample == 'down':
-    if len(input_shape - 1) == 1:
+    if len(input_shape) - 1 == 1:
       results = tf.keras.layers.AveragePooling1D(pool_size = (2,), strides = (2,), padding = 'same')(results)
       results = tf.keras.layers.AveragePooling1D(pool_size = (2,), strides = (2,), padding = 'same')(results)
-    elif len(input_shape - 1) == 2:
+    elif len(input_shape) - 1 == 2:
       results = tf.keras.layers.AveragePooling2D(pool_size = (2,2), strides = (2,2), padding = 'same')(results)
       results = tf.keras.layers.AveragePooling2D(pool_size = (2,2), strides = (2,2), padding = 'same')(results)
-    elif len(input_shape - 1) == 3:
+    elif len(input_shape) - 1 == 3:
       results = tf.keras.layers.AveragePooling3D(pool_size = (1,2,2), strides = (1,2,2), padding = 'same')(results)
       results = tf.keras.layers.AveragePooling3D(pool_size = (1,2,2), strides = (1,2,2), padding = 'same')(results)
   tensor_dim = len(input_shape) - 1
