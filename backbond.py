@@ -193,4 +193,11 @@ def UNet(input_shape, **kwargs):
                    2: tf.keras.layers.Conv2D,
                    3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, strides = strides, padding = 'same')(results) # results.shape = input_shape[:-1] + [mutl * model_channels]
   # middle block
-
+  results = ResBlock(input_shape[:-1] + [ch,], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [ch,]
+  if use_spatial_transformer:
+    results = SpatialTransformer(input_shape[:-1] + [ch,], num_heads, dim_head, transformer_depth, dropout. context_dim)([results, context] if context_dim is not None else [results]) # results.shape = input_shape[:-1] + [ch,]
+  else:
+    results = AttentionBlock(input_shape[:-1] + [ch,], num_heads)(results) # results.shape = input_shape[:-1] + [ch,]
+  results = ResBlock(input_shape[:-1] + [ch,], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [ch,]
+  # output blocks
+  results = 
