@@ -128,7 +128,7 @@ def SpatialTransformer(input_shape, num_heads, dim_head, depth, dropout, context
   results = tf.keras.layers.Add()([results, x]) # results.shape = (batch, h, w, c)
   return tf.keras.Model(inputs = (x, context) if context_dim is not None else x, outputs = results)
 
-def UNet(input_shape, **kwargs):
+def UNet(**kwargs):
   image_size = kwargs.get('image_size', 32)
   in_channels = kwargs.get('in_channels', 4)
   model_channels = kwargs.get('model_channels', 256)
