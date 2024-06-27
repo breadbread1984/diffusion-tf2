@@ -142,7 +142,7 @@ def UNet(**kwargs):
   num_classes = kwargs.get('num_classes', None)
   num_heads = kwargs.get('num_heads', -1)
   num_head_channels = kwargs.get('num_head_channels', 32)
-  max_period = kwargs.get('max_period', 10000)
+  max_period = kwargs.get('max_period', 10000.)
   use_scale_shift_norm = kwargs.get('use_scale_shift_norm', False)
   transformer_depth = kwargs.get('transformer_depth', 1)
   context_dim = kwargs.get('context_dim', None)
@@ -155,8 +155,6 @@ def UNet(**kwargs):
   if context_dim is not None:
     context = tf.keras.Input((None, context_dim)) # context.shape = (batch, context_len, c)
   timesteps = tf.keras.Input(()) # timesteps.shape = (batch,)
-  if num_classes is not None:
-    y = tf.keras.Input(()) # y.shape = (batch,)
   # 1) timestep_embedding
   freqs = tf.keras.layers.Lambda(lambda x, p, h: tf.math.exp(-tf.math.log(p) * tf.range(h, dtype = tf.float32) / h), arguments = {'p': max_period, 'h': model_channels // 2}, output_shape = (model_channels // 2,))(timesteps) # freqs.shape = (model_channels // 2)
   args = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x[0], axis = -1) * tf.expand_dims(x[1], axis = 0))([timesteps, freqs]) # args.shape = (batch, model_channels // 2)
@@ -166,6 +164,7 @@ def UNet(**kwargs):
   emb = tf.keras.layers.Dense(model_channels * 4, activation = tf.keras.activations.silu)(embedding)
   emb = tf.keras.layers.Dense(model_channels * 4)(emb) # emb.shape = (batch, 4 * model_channels)
   if num_classes is not None:
+    y = tf.keras.Input(()) # y.shape = (batch,)
     class_emb = tf.keras.layers.Embedding(num_classes, model_channels * 4)(y) # class_emb.shape = (batch, model_channels * 4)
     emb = tf.keras.layers.Add()([emb, class_emb]) # emb.shape = (batch, model_channels * 4)
   # 2.1) input blocks
@@ -243,7 +242,7 @@ def UNet(**kwargs):
     tensor_dim = len(input_shape) - 1
     results = {1: tf.keras.layers.Conv1D,
                2: tf.keras.layers.Conv2D,
-               3: tf.keras.layers.Conv3D}[tensor_dim](out_channel, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
+               3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
   inputs = [x] + ([context] if context_dim is not None else []) + [timesteps] + ([y] if num_classes is not None else [])
   return tf.keras.Model(inputs = inputs if context_dim is not None else (x, timesteps, y), outputs = results)
 
