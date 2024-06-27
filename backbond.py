@@ -149,7 +149,8 @@ def UNet(input_shape, **kwargs):
   use_spatial_transformer = kwargs.get('use_spatial_transformer', True)
   resblock_updown = kwargs.get('resblock_updown', False)
   n_embed = kwargs.get('n_embed', None)
-  
+  input_shape = [image_size, image_size, in_channel]
+
   x = tf.keras.Input(input_shape) # x.shape = (batch, h, w, c)
   if context_dim is not None:
     context = tf.keras.Input((None, context_dim)) # context.shape = (batch, context_len, c)
@@ -243,4 +244,12 @@ def UNet(input_shape, **kwargs):
     results = {1: tf.keras.layers.Conv1D,
                2: tf.keras.layers.Conv2D,
                3: tf.keras.layers.Conv3D}[tensor_dim](out_channel, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
-  return tf.keras.Model(inputs = (x, context, timesteps, y) if context_dim is not None else (x, timesteps, y), outputs = results)
+  inputs = [x] + ([context] if context_dim is not None else []) + [timesteps] + ([y] if num_classes is not None else [])
+  return tf.keras.Model(inputs = inputs if context_dim is not None else (x, timesteps, y), outputs = results)
+
+if __name__ == "__main__":
+  unet = UNet(context_dim = 128)
+  x = np.random.normal(size = (1,32,32,4))
+  context = np.random.normal(size = (1,32,128))
+  timesteps = np.random.randint(low = 0, high = 10, size = (1,))
+  results = unet([x,context,timesteps])
