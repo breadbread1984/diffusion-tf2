@@ -210,6 +210,7 @@ def UNet(**kwargs):
       hiddens.append(results)
       input_block_chans.append(ch)
   # 2.2) middle block
+  # middle block = resblock + attention layer + resblock
   results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [ch,]
   if use_spatial_transformer:
     results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results]) # results.shape = input_shape[:-1] + [ch,]
