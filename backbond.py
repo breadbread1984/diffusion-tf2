@@ -222,17 +222,17 @@ def UNet(**kwargs):
     for i in range(num_res_blocks + 1):
       ich = input_block_chans.pop()
       h = tf.keras.layers.Concatenate(axis = -1)([results, hiddens.pop()]) # h.shape = input_shape[:-1] + [ch + ich]
-      results = ResBlock(input_shape[:-1] + [ch + ich,], out_channels = ch + ich, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([h, emb]) # results.shape = input_shape[:-1] + [ch + ich]
+      results = ResBlock(h.shape[1:], out_channels = ch + ich, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([h, emb]) # results.shape = input_shape[:-1] + [ch + ich]
       ch = model_channels * mult
       for ds in attention_resolutions:
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
-          results = SpatialTransformer(input_shape[:-1] + [ch,], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results])
+          results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results])
         else:
-          results = AttentionBlock(input_shape[:-1] + [ch,], num_heads)(results)
+          results = AttentionBlock(results.shape[1:], num_heads)(results)
       if level and i == num_res_blocks:
         if resblock_updown:
-          results = ResBlock(input_shape[:-1] + [ch,], ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'up')([results, emb])
+          results = ResBlock(results.shape[1:], ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'up')([results, emb])
         else:
           tensor_dim = len(input_shape) - 1
           size = 2 if tensor_dim in {1,2} else (1,2,2)
