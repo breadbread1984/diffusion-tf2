@@ -46,7 +46,11 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
   results = {1: tf.keras.layers.Conv1D,
              2: tf.keras.layers.Conv2D,
              3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results) # results.shape = input_shape[:-1] + [out_channels]
-  results = tf.keras.layers.Add()([x, results])
+  if input_shape[-1] != out_channels:
+    skip = tf.keras.layers.Dense(out_channels)(x)
+  else:
+    skip = x
+  results = tf.keras.layers.Add()([skip, results])
   return tf.keras.Model(inputs = (x, emb), outputs = results)
 
 def AttentionBlock(input_shape, num_heads):
@@ -194,6 +198,7 @@ def UNet(**kwargs):
       if resblock_updown:
         results = ResBlock(input_shape[:-1] + [ch,], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'down')([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
       else:
+        # DownSampling
         tensor_dim = len(input_shape) - 1
         strides = 2 if tensor_dim in {1,2} else (1,2,2)
         results = {1: tf.keras.layers.Conv1D,
