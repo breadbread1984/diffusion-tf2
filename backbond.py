@@ -75,10 +75,10 @@ def CrossAttention(query_dim, num_heads, dim_head, dropout, context_dim = None):
   x = tf.keras.Input((None, query_dim)) # x.shape = (batch, query_len, query_dim)
   if context_dim is not None:
     context = tf.keras.Input((None, context_dim)) # context.shape = (batch, context_len, context_dim)
-  q = tf.keras.layers.Dense(num_head * dim_head, use_bias = False)(x) # q.shape = (batch, query_len, hn * hd)
+  q = tf.keras.layers.Dense(num_heads * dim_head, use_bias = False)(x) # q.shape = (batch, query_len, hn * hd)
   context_ = context if use_context else x
-  k = tf.keras.layers.Dense(num_head * dim_head, use_bias = False)(context_) # k.shape = (batch, context_len, hn * hd)
-  v = tf.keras.layers.Dense(num_head * dim_head, use_bias = False)(context_) # v.shape = (batch, context_len, hn * hd)
+  k = tf.keras.layers.Dense(num_heads * dim_head, use_bias = False)(context_) # k.shape = (batch, context_len, hn * hd)
+  v = tf.keras.layers.Dense(num_heads * dim_head, use_bias = False)(context_) # v.shape = (batch, context_len, hn * hd)
   q = tf.keras.layers.Reshape((-1, num_heads, dim_head))(q) # q.shape = (batch, query_len, hn, hd)
   k = tf.keras.layers.Reshape((-1, num_heads, dim_head))(k) # k.shape = (batch, context_len, hn, hd)
   v = tf.keras.layers.Reshape((-1, num_heads, dim_head))(v) # v.shape = (batch, context_len, hn, hd)
@@ -158,7 +158,7 @@ def UNet(**kwargs):
   if num_classes is not None:
     y = tf.keras.Input(()) # y.shape = (batch,)
   # 1) timestep_embedding
-  freqs = tf.keras.layers.Lambda(lambda x, p, h: tf.math.exp(-tf.math.log(p) * tf.range(h, dtype = tf.float32) / h), arguments = {'p': max_period, 'h': model_channels // 2})(timesteps) # freqs.shape = (model_channels // 2)
+  freqs = tf.keras.layers.Lambda(lambda x, p, h: tf.math.exp(-tf.math.log(p) * tf.range(h, dtype = tf.float32) / h), arguments = {'p': max_period, 'h': model_channels // 2}, output_shape = (model_channels // 2,))(timesteps) # freqs.shape = (model_channels // 2)
   args = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x[0], axis = -1) * tf.expand_dims(x[1], axis = 0))([timesteps, freqs]) # args.shape = (batch, model_channels // 2)
   embedding = tf.keras.layers.Lambda(lambda x: tf.concat([tf.math.cos(x), tf.math.sin(x)], axis = -1))(args) # embedding.shape = (batch, model_channels // 2 * 2)
   if model_channels % 2:
@@ -183,7 +183,7 @@ def UNet(**kwargs):
     for _ in range(num_res_blocks):
       results = ResBlock(input_shape[:-1] + [ch,], out_channels = mult * model_channels, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
       ch = mult * model_channels
-      for ds in attention_resolution:
+      for ds in attention_resolutions:
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
           results = SpatialTransformer(input_shape[:-1] + [ch,], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results]) # results.shape = input_shape[:-1] + [mult * model_channels]
