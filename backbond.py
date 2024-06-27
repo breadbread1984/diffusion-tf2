@@ -76,7 +76,7 @@ def CrossAttention(query_dim, num_heads, dim_head, dropout, context_dim = None):
   if context_dim is not None:
     context = tf.keras.Input((None, context_dim)) # context.shape = (batch, context_len, context_dim)
   q = tf.keras.layers.Dense(num_heads * dim_head, use_bias = False)(x) # q.shape = (batch, query_len, hn * hd)
-  context_ = context if use_context else x
+  context_ = context if context_dim is not None else x
   k = tf.keras.layers.Dense(num_heads * dim_head, use_bias = False)(context_) # k.shape = (batch, context_len, hn * hd)
   v = tf.keras.layers.Dense(num_heads * dim_head, use_bias = False)(context_) # v.shape = (batch, context_len, hn * hd)
   q = tf.keras.layers.Reshape((-1, num_heads, dim_head))(q) # q.shape = (batch, query_len, hn, hd)
