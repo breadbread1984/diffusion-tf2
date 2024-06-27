@@ -183,7 +183,9 @@ def UNet(**kwargs):
   # input block 2...
   ch = model_channels
   for level, mult in enumerate(channel_mult):
+    # create multiple blocks sharing a same channel number
     for _ in range(num_res_blocks):
+      # each block contains a resblock and an attention layer
       results = ResBlock(input_shape[:-1] + [ch,], out_channels = mult * model_channels, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
       ch = mult * model_channels
       for ds in attention_resolutions:
@@ -194,6 +196,7 @@ def UNet(**kwargs):
           results = AttentionBlock(input_shape[:-1] + [ch,], num_heads)(results) # results.shape = input_shape[:-1] + [mult * model_channels]
       hiddens.append(results)
       input_block_chans.append(ch)
+    # half spatial dimension
     if level != len(channel_mult) - 1:
       if resblock_updown:
         results = ResBlock(input_shape[:-1] + [ch,], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'down')([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
