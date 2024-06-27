@@ -149,7 +149,7 @@ def UNet(**kwargs):
   use_spatial_transformer = kwargs.get('use_spatial_transformer', True)
   resblock_updown = kwargs.get('resblock_updown', False)
   n_embed = kwargs.get('n_embed', None)
-  input_shape = [image_size, image_size, in_channel]
+  input_shape = [image_size, image_size, in_channels]
 
   x = tf.keras.Input(input_shape) # x.shape = (batch, h, w, c)
   if context_dim is not None:
