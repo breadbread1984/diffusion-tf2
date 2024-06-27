@@ -110,7 +110,7 @@ def BasicTransformerBlock(dim, num_heads, dim_head, dropout, context_dim = None)
   results = tf.keras.layers.LayerNormalization()(skip)
   results = tf.keras.layers.Dense(4 * dim, activation = tf.keras.activations.gelu)(results)
   results = tf.keras.layers.Dropout(rate = dropout)(results)
-  results = tf.keras.l;ayers.Dense(dim)(results)
+  results = tf.keras.layers.Dense(dim)(results)
   results = tf.keras.layers.Add()([skip, results])
   return tf.keras.Model(inputs = (x, context) if context_dim is not None else x, outputs = results)
 
