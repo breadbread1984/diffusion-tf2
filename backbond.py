@@ -148,7 +148,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
   context_dim = kwargs.get('context_dim', None) # context embedding sequence channels
   use_spatial_transformer = kwargs.get('use_spatial_transformer', True)
   resblock_updown = kwargs.get('resblock_updown', False) # whether use convolution in upsampling and downsampling
-  n_embed = kwargs.get('n_embed', None)
+  n_embed = kwargs.get('n_embed', None) # number of code if the model outputs code prediction
 
   x = tf.keras.Input(input_shape) # x.shape = (batch, h, w, c)
   if context_dim is not None:
