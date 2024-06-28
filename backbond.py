@@ -135,7 +135,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
   model_channels = kwargs.get('model_channels', 256) # base channel of the model
   out_channels = kwargs.get('out_channels', 4) # output channel
   num_res_blocks = kwargs.get('num_res_blocks', 2) # how many blocks sharing a same channel number (in a stage)
-  transformer_blocks = kwargs.get('transformer_blocks', 3) # how many transformer blocks after res blocks sharing a same channel number (in a stage)
+  num_transformer_blocks = kwargs.get('num_transformer_blocks', 3) # how many transformer blocks after res blocks sharing a same channel number (in a stage)
   dropout = kwargs.get('dropout', 0)
   channel_mult = kwargs.get('channel_mult', [1,2,4]) # multiplier to base channel of different stages
   conv_resample = kwargs.get('conv_resample', True) # whether use conv during upsampling or downsampling
@@ -182,7 +182,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
     for i in range(num_res_blocks):
       # each block contains a resblock and an attention layer
       results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
-      for attn_layer in range(transformer_blocks):
+      for attn_layer in range(num_transformer_blocks):
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
           results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results]) # results.shape = input_shape[:-1] + [mult * model_channels]
@@ -222,7 +222,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
       # NOTE: a series blocks sharing a same output channel and an extra block halving spatial dimension
       h = tf.keras.layers.Concatenate(axis = -1)([results, hiddens.pop()]) # h.shape = input_shape[:-1] + [ch + ich]
       results = ResBlock(h.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([h, emb]) # results.shape = input_shape[:-1] + [ch + ich]
-      for attn_layer in range(transformer_blocks):
+      for attn_layer in range(num_transformer_blocks):
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
           results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results])
