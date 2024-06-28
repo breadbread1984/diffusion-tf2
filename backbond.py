@@ -291,6 +291,8 @@ class DiffusionWrapper(tf.keras.Model):
       # NOTE: input list: x, t, c_crossattn
       cc = kwargs.get('c_crossattn')[0]
       results = self.diffusion_model([x, kwargs.get('t'), cc])
+    else:
+      raise Exception('invalid condition key!')
     return results
 
 if __name__ == "__main__":
