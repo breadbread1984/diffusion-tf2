@@ -219,6 +219,7 @@ def UNet(**kwargs):
     # create multiple blocks shareing a same output channel number
     ch = mult * model_channels
     for i in range(num_res_blocks + 1):
+      # NOTE: a series blocks sharing a same output channel and an extra block halving spatial dimension
       h = tf.keras.layers.Concatenate(axis = -1)([results, hiddens.pop()]) # h.shape = input_shape[:-1] + [ch + ich]
       results = ResBlock(h.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([h, emb]) # results.shape = input_shape[:-1] + [ch + ich]
       for ds in attention_resolutions:
@@ -227,19 +228,19 @@ def UNet(**kwargs):
           results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results])
         else:
           results = AttentionBlock(results.shape[1:], num_heads)(results)
-      # double spatial dimension
-      if level and i == num_res_blocks:
-        if resblock_updown:
-          results = ResBlock(results.shape[1:], ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'up')([results, emb])
-        else:
-          tensor_dim = len(input_shape) - 1
-          size = 2 if tensor_dim in {1,2} else (1,2,2)
-          results = {1: tf.keras.layers.UpSampling1D,
-                     2: tf.keras.layers.UpSampling2D,
-                     3: tf.keras.layers.UpSampling3D}[tensor_dim](size = size, interpolation = 'nearest')(results)
-          resutls = {1: tf.keras.layers.Conv1D,
-                     2: tf.keras.layers.Conv2D,
-                     3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, padding = 'same')(results)
+    # double spatial dimension
+    if level > 0:
+      if resblock_updown:
+        results = ResBlock(results.shape[1:], ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'up')([results, emb])
+      else:
+        tensor_dim = len(input_shape) - 1
+        size = 2 if tensor_dim in {1,2} else (1,2,2)
+        results = {1: tf.keras.layers.UpSampling1D,
+                   2: tf.keras.layers.UpSampling2D,
+                   3: tf.keras.layers.UpSampling3D}[tensor_dim](size = size, interpolation = 'nearest')(results)
+        resutls = {1: tf.keras.layers.Conv1D,
+                   2: tf.keras.layers.Conv2D,
+                   3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, padding = 'same')(results)
   if n_embed is not None:
     results = tf.keras.layers.GroupNormalization()(results)
     results = tf.keras.layers.Dense(n_embed)(results)
@@ -259,4 +260,5 @@ if __name__ == "__main__":
   context = np.random.normal(size = (1,32,128))
   timesteps = np.random.randint(low = 0, high = 10, size = (1,))
   results = unet([x,context,timesteps])
+  print(results.shape)
   unet.save('unet.h5')
