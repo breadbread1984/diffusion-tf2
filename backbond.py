@@ -134,8 +134,8 @@ def SpatialTransformer(input_shape, num_heads, dim_head, depth, dropout, context
 def UNet(input_shape = [32,32,4], **kwargs):
   model_channels = kwargs.get('model_channels', 256) # base channel of the model
   out_channels = kwargs.get('out_channels', 4) # output channel
-  num_res_blocks = kwargs.get('num_res_blocks', 2) # how many blocks sharing a same channel number (in a stage)
-  num_transformer_blocks = kwargs.get('num_transformer_blocks', 3) # how many transformer blocks after res blocks sharing a same channel number (in a stage)
+  num_res_blocks = kwargs.get('num_res_blocks', 2) # how many blocks (1 resblock + n transformer blocks) sharing a same channel number (in a stage)
+  num_transformer_blocks = kwargs.get('num_transformer_blocks', 3) # how many transformer blocks after one resblock (in a stage)
   dropout = kwargs.get('dropout', 0)
   channel_mult = kwargs.get('channel_mult', [1,2,4]) # multiplier to base channel of different stages
   conv_resample = kwargs.get('conv_resample', True) # whether use conv during upsampling or downsampling
