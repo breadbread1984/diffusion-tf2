@@ -181,13 +181,12 @@ def UNet(**kwargs):
              3: tf.keras.layers.Conv3D}[tensor_dim](model_channels, kernel_size = 3, padding = 'same')(x) # results.shape = input_shape[:-1] + [model_channels]
   hiddens.append(results)
   # input block 2...
-  ch = model_channels
   for level, mult in enumerate(channel_mult):
     # create multiple blocks sharing a same channel number
+    ch = mult * model_channels
     for _ in range(num_res_blocks):
       # each block contains a resblock and an attention layer
-      results = ResBlock(results.shape[1:], out_channels = mult * model_channels, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
-      ch = mult * model_channels
+      results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
       for ds in attention_resolutions:
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
