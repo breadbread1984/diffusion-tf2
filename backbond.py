@@ -218,11 +218,11 @@ def UNet(**kwargs):
   results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [ch,]
   # 2.3) output blocks
   for level, mult in list(enumerate(channel_mult))[::-1]:
+    ch = mult * model_channels
     for i in range(num_res_blocks + 1):
       ich = input_block_chans.pop()
       h = tf.keras.layers.Concatenate(axis = -1)([results, hiddens.pop()]) # h.shape = input_shape[:-1] + [ch + ich]
-      results = ResBlock(h.shape[1:], out_channels = ch + ich, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([h, emb]) # results.shape = input_shape[:-1] + [ch + ich]
-      ch = model_channels * mult
+      results = ResBlock(h.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([h, emb]) # results.shape = input_shape[:-1] + [ch + ich]
       for ds in attention_resolutions:
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
