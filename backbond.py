@@ -138,8 +138,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
   attention_layers = kwargs.get('attention_layers', 3) # how many transformer layers after blocks sharing a same channel number (in a stage)
   dropout = kwargs.get('dropout', 0)
   channel_mult = kwargs.get('channel_mult', [1,2,4]) # multiplier to base channel of different stages
-  conv_resample = kwargs.get('conv_resample', True) #
-  dims = kwargs.get('dims', 2)
+  conv_resample = kwargs.get('conv_resample', True) # whether use conv during upsampling or downsampling
   num_classes = kwargs.get('num_classes', None)
   num_heads = kwargs.get('num_heads', -1)
   num_head_channels = kwargs.get('num_head_channels', 32)
@@ -257,10 +256,11 @@ def UNet(input_shape = [32,32,4], **kwargs):
   return tf.keras.Model(inputs = inputs if context_dim is not None else (x, timesteps, y), outputs = results)
 
 if __name__ == "__main__":
-  unet = UNet(context_dim = 128, input_shape = [32,32,4])
+  unet = UNet(context_dim = 128, input_shape = [32,32,4], num_classes = 5)
   x = np.random.normal(size = (1,32,32,4))
+  classes = np.random.randint(low = 0, high = 5, size = (1,))
   context = np.random.normal(size = (1,32,128))
   timesteps = np.random.randint(low = 0, high = 10, size = (1,))
-  results = unet([x,context,timesteps])
+  results = unet([x,context,timesteps,classes])
   print(results.shape)
   unet.save('unet.h5')
