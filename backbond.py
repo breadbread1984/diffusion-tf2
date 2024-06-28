@@ -135,19 +135,19 @@ def UNet(input_shape = [32,32,4], **kwargs):
   model_channels = kwargs.get('model_channels', 256) # base channel of the model
   out_channels = kwargs.get('out_channels', 4) # output channel
   num_res_blocks = kwargs.get('num_res_blocks', 2) # how many blocks sharing a same channel number (in a stage)
-  attention_layers = kwargs.get('attention_layers', 3) # how many transformer layers after blocks sharing a same channel number (in a stage)
+  transformer_blocks = kwargs.get('transformer_blocks', 3) # how many transformer blocks after res blocks sharing a same channel number (in a stage)
   dropout = kwargs.get('dropout', 0)
   channel_mult = kwargs.get('channel_mult', [1,2,4]) # multiplier to base channel of different stages
   conv_resample = kwargs.get('conv_resample', True) # whether use conv during upsampling or downsampling
-  num_classes = kwargs.get('num_classes', None)
-  num_heads = kwargs.get('num_heads', -1)
-  num_head_channels = kwargs.get('num_head_channels', 32)
-  max_period = kwargs.get('max_period', 10000.)
-  use_scale_shift_norm = kwargs.get('use_scale_shift_norm', False)
-  transformer_depth = kwargs.get('transformer_depth', 1)
-  context_dim = kwargs.get('context_dim', None)
+  num_classes = kwargs.get('num_classes', None) # if use class context, how many categories
+  num_heads = kwargs.get('num_heads', -1) # number of head in transformer
+  num_head_channels = kwargs.get('num_head_channels', 32) # head dimension in transformer
+  max_period = kwargs.get('max_period', 10000.) # period used in timesteps embedding
+  use_scale_shift_norm = kwargs.get('use_scale_shift_norm', False) # whether the context embedding is plus or scale plus to hidden tensor
+  transformer_depth = kwargs.get('transformer_depth', 1) # how many transformer layers within a transformer block
+  context_dim = kwargs.get('context_dim', None) # context embedding sequence channels
   use_spatial_transformer = kwargs.get('use_spatial_transformer', True)
-  resblock_updown = kwargs.get('resblock_updown', False)
+  resblock_updown = kwargs.get('resblock_updown', False) # whether use convolution in upsampling and downsampling
   n_embed = kwargs.get('n_embed', None)
 
   x = tf.keras.Input(input_shape) # x.shape = (batch, h, w, c)
@@ -182,7 +182,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
     for i in range(num_res_blocks):
       # each block contains a resblock and an attention layer
       results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
-      for attn_layer in range(attention_layers):
+      for attn_layer in range(transformer_blocks):
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
           results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results]) # results.shape = input_shape[:-1] + [mult * model_channels]
@@ -222,7 +222,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
       # NOTE: a series blocks sharing a same output channel and an extra block halving spatial dimension
       h = tf.keras.layers.Concatenate(axis = -1)([results, hiddens.pop()]) # h.shape = input_shape[:-1] + [ch + ich]
       results = ResBlock(h.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([h, emb]) # results.shape = input_shape[:-1] + [ch + ich]
-      for attn_layer in range(attention_layers):
+      for attn_layer in range(transformer_blocks):
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
           results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results])
