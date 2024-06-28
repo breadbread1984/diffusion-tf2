@@ -255,6 +255,44 @@ def UNet(input_shape = [32,32,4], **kwargs):
   inputs = [x, timesteps] + ([context] if context_dim is not None else []) + ([y] if num_classes is not None else [])
   return tf.keras.Model(inputs = inputs if context_dim is not None else (x, timesteps, y), outputs = results)
 
+class DiffusionWrapper(tf.keras.Model):
+  def __init__(self, configs, condition_key):
+    assert condition_key in {None, 'concat', 'crossattn', 'hybrid', 'adm'}
+    if condition_key in {None, 'concat'}:
+      assert 'context_dim' not in config or configs['context_dim'] is None
+      assert 'num_classes' not in config or configs['num_classes'] is None
+    if condition_key in {'crossattn', 'hybrid'}:
+      assert 'context_dim' in config and configs['context_dim'] is not None
+      assert 'num_classes' not in config or configs['num_classes'] is None
+    if condition_key == 'adm':
+      assert 'context_dim' not in config or configs['context_dim'] is None
+      assert 'num_classes' in config and configs['num_classes'] is not None
+    self.condition_key = condition_key
+    super(DiffusionWrapper, self).__init__()
+    self.diffusion_model = UNet(**configs)
+  def call(self, x, **kwargs):
+    if self.condition_key is None:
+      # NOTE: input list: x, t
+      results = self.diffusion_model([x, kwargs.get('t')])
+    elif self.condition_key == 'concat':
+      # NOTE: input list: x, t, c_concat
+      xc = tf.concat([x] + kwargs.get('c_concat'), axis = -1)
+      results = self.diffusion_model([xc, kwargs.get('t')])
+    elif self.condition_key == 'crossattn':
+      # NOTE: input list: x, t, c_crossattn
+      cc = tf.concat(kwargs.get('c_crossattn'), axis = -1)
+      results = self.diffusion_model([x, kwargs.get('t'), cc])
+    elif self.condition_key == 'hybrid':
+      # NOTE: input list: x, t, c_concat, c_crossattn
+      xc = tf.concat([x] + kwargs.get('c_concat'), axis = -1)
+      cc = tf.concat(kwargs.get('c_crossattn'), axis = -1)
+      results = self.diffusion_model([x, kwargs.get('t'), cc])
+    elif self.condition_key == 'adm':
+      # NOTE: input list: x, t, c_crossattn
+      cc = kwargs.get('c_crossattn')[0]
+      results = self.diffusion_model([x, kwargs.get('t'), cc])
+    return results
+
 if __name__ == "__main__":
   unet = UNet(context_dim = 128, input_shape = [32,32,4], num_classes = 5)
   x = np.random.normal(size = (1,32,32,4))
