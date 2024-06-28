@@ -182,7 +182,7 @@ def UNet(**kwargs):
   hiddens.append(results)
   # input block 2...
   for level, mult in enumerate(channel_mult):
-    # create multiple blocks sharing a same channel number
+    # create multiple blocks sharing a same output channel number
     ch = mult * model_channels
     for _ in range(num_res_blocks):
       # each block contains a resblock and an attention layer
@@ -194,8 +194,7 @@ def UNet(**kwargs):
         else:
           results = AttentionBlock(results.shape[1:], num_heads)(results) # results.shape = input_shape[:-1] + [mult * model_channels]
       hiddens.append(results)
-      input_block_chans.append(ch)
-    # half spatial dimension
+    # half spatial dimension at the end of blocks
     if level != len(channel_mult) - 1:
       if resblock_updown:
         results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'down')([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
@@ -207,7 +206,6 @@ def UNet(**kwargs):
                    2: tf.keras.layers.Conv2D,
                    3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, strides = strides, padding = 'same')(results) # results.shape = input_shape[:-1] + [mutl * model_channels]
       hiddens.append(results)
-      input_block_chans.append(ch)
   # 2.2) middle block
   # middle block = resblock + attention layer + resblock
   results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [ch,]
@@ -218,9 +216,9 @@ def UNet(**kwargs):
   results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [ch,]
   # 2.3) output blocks
   for level, mult in list(enumerate(channel_mult))[::-1]:
+    # create multiple blocks shareing a same output channel number
     ch = mult * model_channels
     for i in range(num_res_blocks + 1):
-      ich = input_block_chans.pop()
       h = tf.keras.layers.Concatenate(axis = -1)([results, hiddens.pop()]) # h.shape = input_shape[:-1] + [ch + ich]
       results = ResBlock(h.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([h, emb]) # results.shape = input_shape[:-1] + [ch + ich]
       for ds in attention_resolutions:
@@ -229,6 +227,7 @@ def UNet(**kwargs):
           results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results])
         else:
           results = AttentionBlock(results.shape[1:], num_heads)(results)
+      # double spatial dimension
       if level and i == num_res_blocks:
         if resblock_updown:
           results = ResBlock(results.shape[1:], ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = 'up')([results, emb])
@@ -260,3 +259,4 @@ if __name__ == "__main__":
   context = np.random.normal(size = (1,32,128))
   timesteps = np.random.randint(low = 0, high = 10, size = (1,))
   results = unet([x,context,timesteps])
+  unet.save('unet.h5')
