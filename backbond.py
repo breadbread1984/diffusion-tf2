@@ -57,7 +57,7 @@ def AttentionBlock(input_shape, num_heads):
   x = tf.keras.Input(input_shape)
   skip = tf.keras.layers.Reshape((-1,input_shape[-1]))(x) # x.shape = (batch, length, c)
   results = tf.keras.layers.GroupNormalization()(skip)
-  results = tf.keras.layers.Dense(input_shape[-1], 3 * input_shape[-1])(results) # results.shape = (batch, length, 3 * c)
+  results = tf.keras.layers.Dense(3 * input_shape[-1])(results) # results.shape = (batch, length, 3 * c)
   q,k,v = tf.keras.layers.Lambda(lambda x: tf.split(x, 3, axis = -1))(results) # q.shape = k.shape = v.shape = (batch, length, c)
   q = tf.keras.layers.Reshape((-1, num_heads, input_shape[-1] // num_heads))(q) # q.shape = (batch, length, h, c // h)
   q = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,1,3)))(q) # q.shape = (batch, h, length, c // h)
@@ -72,7 +72,7 @@ def AttentionBlock(input_shape, num_heads):
   results = tf.keras.layers.Reshape((-1, input_shape[-1]))(results) # a.shape = (batch, length, c)
   results = tf.keras.layers.Dense(input_shape[-1], kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results) # results.shape = (batch, length, c)
   results = tf.keras.layers.Add()([skip, results]) # results.shape = (batch, length, c)
-  results = tf.keras.Reshape(input_shape)(results) # results.shape = (batch, h, w, c)
+  results = tf.keras.layers.Reshape(input_shape)(results) # results.shape = (batch, h, w, c)
   return tf.keras.Model(inputs = x, outputs = results)
 
 def CrossAttention(query_dim, num_heads, dim_head, dropout, context_dim = None):
