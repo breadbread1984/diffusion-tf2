@@ -6,6 +6,7 @@ import tensorflow as tf
 def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_norm = False, resample = None):
   assert resample in {'up','down',False}
   x = tf.keras.Input(input_shape)
+  skip = x
   emb = tf.keras.Input((emb_channels,)) # emb.shape = (batch, emb_channels)
   results = tf.keras.layers.GroupNormalization()(x)
   results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(x)
@@ -16,7 +17,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
           2: tf.keras.layers.UpSampling2D,
           3: tf.keras.layers.UpSampling3D}[tensor_dim]
     results = Op(size = size, interpolation = 'nearest')(results)
-    results = Op(size = size, interpolation = 'nearest')(results)
+    skip = Op(size = size, interpolation = 'nearest')(skip)
   elif resample == 'down':
     tensor_dim = len(input_shape) - 1
     pool_size = 2 if tensor_dim in {1,2} else (1,2,2)
@@ -25,7 +26,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
           2: tf.keras.layers.AveragePooling2D,
           3: tf.keras.layers.AveragePooling3D}[tensor_dim]
     results = Op(pool_size = pool_size, strides = strides, padding = 'same')(results)
-    results = Op(pool_size = pool_size, strides = strides, padding = 'same')(results)
+    skip = Op(pool_size = pool_size, strides = strides, padding = 'same')(skip)
   tensor_dim = len(input_shape) - 1
   results = {1: tf.keras.layers.Conv1D,
              2: tf.keras.layers.Conv2D,
@@ -47,9 +48,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
              2: tf.keras.layers.Conv2D,
              3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results) # results.shape = input_shape[:-1] + [out_channels]
   if input_shape[-1] != out_channels:
-    skip = tf.keras.layers.Dense(out_channels)(x)
-  else:
-    skip = x
+    skip = tf.keras.layers.Dense(out_channels)(skip)
   results = tf.keras.layers.Add()([skip, results])
   return tf.keras.Model(inputs = (x, emb), outputs = results)
 
@@ -132,16 +131,14 @@ def SpatialTransformer(input_shape, num_heads, dim_head, depth, dropout, context
   results = tf.keras.layers.Add()([results, x]) # results.shape = (batch, h, w, c)
   return tf.keras.Model(inputs = (x, context) if context_dim is not None else x, outputs = results)
 
-def UNet(**kwargs):
-  image_size = kwargs.get('image_size', 32)
-  in_channels = kwargs.get('in_channels', 4)
-  model_channels = kwargs.get('model_channels', 256)
-  out_channels = kwargs.get('out_channels', 4)
-  num_res_blocks = kwargs.get('num_res_blocks', 2)
-  attention_resolutions = kwargs.get('attention_resolutions', [4,2,1])
+def UNet(input_shape = [32,32,4], **kwargs):
+  model_channels = kwargs.get('model_channels', 256) # base channel of the model
+  out_channels = kwargs.get('out_channels', 4) # output channel
+  num_res_blocks = kwargs.get('num_res_blocks', 2) # how many blocks sharing a same channel number (in a stage)
+  attention_layers = kwargs.get('attention_layers', 3) # how many transformer layers after blocks sharing a same channel number (in a stage)
   dropout = kwargs.get('dropout', 0)
-  channel_mult = kwargs.get('channel_mult', [1,2,4])
-  conv_resample = kwargs.get('conv_resample', True)
+  channel_mult = kwargs.get('channel_mult', [1,2,4]) # multiplier to base channel of different stages
+  conv_resample = kwargs.get('conv_resample', True) #
   dims = kwargs.get('dims', 2)
   num_classes = kwargs.get('num_classes', None)
   num_heads = kwargs.get('num_heads', -1)
@@ -153,7 +150,6 @@ def UNet(**kwargs):
   use_spatial_transformer = kwargs.get('use_spatial_transformer', True)
   resblock_updown = kwargs.get('resblock_updown', False)
   n_embed = kwargs.get('n_embed', None)
-  input_shape = [image_size, image_size, in_channels]
 
   x = tf.keras.Input(input_shape) # x.shape = (batch, h, w, c)
   if context_dim is not None:
@@ -182,12 +178,12 @@ def UNet(**kwargs):
   hiddens.append(results)
   # input block 2...
   for level, mult in enumerate(channel_mult):
-    # create multiple blocks sharing a same output channel number
+    # each stage has multiple blocks sharing a same output channel number
     ch = mult * model_channels
-    for _ in range(num_res_blocks):
+    for i in range(num_res_blocks):
       # each block contains a resblock and an attention layer
       results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [mult * model_channels]
-      for ds in attention_resolutions:
+      for attn_layer in range(attention_layers):
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
           results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results]) # results.shape = input_shape[:-1] + [mult * model_channels]
@@ -202,9 +198,14 @@ def UNet(**kwargs):
         # DownSampling
         tensor_dim = len(input_shape) - 1
         strides = 2 if tensor_dim in {1,2} else (1,2,2)
-        results = {1: tf.keras.layers.Conv1D,
-                   2: tf.keras.layers.Conv2D,
-                   3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, strides = strides, padding = 'same')(results) # results.shape = input_shape[:-1] + [mutl * model_channels]
+        if conv_resample:
+          results = {1: tf.keras.layers.Conv1D,
+                     2: tf.keras.layers.Conv2D,
+                     3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, strides = strides, padding = 'same')(results) # results.shape = input_shape[:-1] + [mutl * model_channels]
+        else:
+          results = {1: tf.keras.layers.AveragePooling1D,
+                     2: tf.keras.layers.AveragePooling2D,
+                     3: tf.keras.layers.AveragePooling3D}[tensor_dim](pool_size = strides, strides = strides, padding = 'same')(results)
       hiddens.append(results)
   # 2.2) middle block
   # middle block = resblock + attention layer + resblock
@@ -216,13 +217,13 @@ def UNet(**kwargs):
   results = ResBlock(results.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([results, emb]) # results.shape = input_shape[:-1] + [ch,]
   # 2.3) output blocks
   for level, mult in list(enumerate(channel_mult))[::-1]:
-    # create multiple blocks shareing a same output channel number
+    # each stage has multiple blocks shareing a same output channel number
     ch = mult * model_channels
     for i in range(num_res_blocks + 1):
       # NOTE: a series blocks sharing a same output channel and an extra block halving spatial dimension
       h = tf.keras.layers.Concatenate(axis = -1)([results, hiddens.pop()]) # h.shape = input_shape[:-1] + [ch + ich]
       results = ResBlock(h.shape[1:], out_channels = ch, emb_channels = 4 * model_channels, dropout = dropout, use_scale_shift_norm = use_scale_shift_norm, resample = False)([h, emb]) # results.shape = input_shape[:-1] + [ch + ich]
-      for ds in attention_resolutions:
+      for attn_layer in range(attention_layers):
         dim_head, num_heads = (ch // num_heads, num_heads) if num_head_channels == -1 else (num_head_channels, ch // num_head_channels)
         if use_spatial_transformer:
           results = SpatialTransformer(results.shape[1:], num_heads, dim_head, transformer_depth, dropout, context_dim)([results, context] if context_dim is not None else [results])
@@ -238,9 +239,10 @@ def UNet(**kwargs):
         results = {1: tf.keras.layers.UpSampling1D,
                    2: tf.keras.layers.UpSampling2D,
                    3: tf.keras.layers.UpSampling3D}[tensor_dim](size = size, interpolation = 'nearest')(results)
-        resutls = {1: tf.keras.layers.Conv1D,
-                   2: tf.keras.layers.Conv2D,
-                   3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, padding = 'same')(results)
+        if conv_resample:
+          resutls = {1: tf.keras.layers.Conv1D,
+                     2: tf.keras.layers.Conv2D,
+                     3: tf.keras.layers.Conv3D}[tensor_dim](ch, kernel_size = 3, padding = 'same')(results)
   if n_embed is not None:
     results = tf.keras.layers.GroupNormalization()(results)
     results = tf.keras.layers.Dense(n_embed)(results)
@@ -255,7 +257,7 @@ def UNet(**kwargs):
   return tf.keras.Model(inputs = inputs if context_dim is not None else (x, timesteps, y), outputs = results)
 
 if __name__ == "__main__":
-  unet = UNet(context_dim = 128)
+  unet = UNet(context_dim = 128, input_shape = [32,32,4])
   x = np.random.normal(size = (1,32,32,4))
   context = np.random.normal(size = (1,32,128))
   timesteps = np.random.randint(low = 0, high = 10, size = (1,))
