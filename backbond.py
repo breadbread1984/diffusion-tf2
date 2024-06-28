@@ -252,7 +252,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
     results = {1: tf.keras.layers.Conv1D,
                2: tf.keras.layers.Conv2D,
                3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
-  inputs = [x] + ([context] if context_dim is not None else []) + [timesteps] + ([y] if num_classes is not None else [])
+  inputs = [x, timesteps] + ([context] if context_dim is not None else []) + ([y] if num_classes is not None else [])
   return tf.keras.Model(inputs = inputs if context_dim is not None else (x, timesteps, y), outputs = results)
 
 if __name__ == "__main__":
@@ -261,6 +261,6 @@ if __name__ == "__main__":
   classes = np.random.randint(low = 0, high = 5, size = (1,))
   context = np.random.normal(size = (1,32,128))
   timesteps = np.random.randint(low = 0, high = 10, size = (1,))
-  results = unet([x,context,timesteps,classes])
+  results = unet([x, timesteps, context, classes])
   print(results.shape)
   unet.save('unet.h5')
