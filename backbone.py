@@ -259,14 +259,14 @@ class DiffusionWrapper(tf.keras.Model):
   def __init__(self, configs, condition_key, ckpt_path = None):
     assert condition_key in {None, 'concat', 'crossattn', 'hybrid', 'adm'}
     if condition_key in {None, 'concat'}:
-      assert 'context_dim' not in config or configs['context_dim'] is None
-      assert 'num_classes' not in config or configs['num_classes'] is None
+      assert 'context_dim' not in configs or configs['context_dim'] is None
+      assert 'num_classes' not in configs or configs['num_classes'] is None
     if condition_key in {'crossattn', 'hybrid'}:
       assert 'context_dim' in config and configs['context_dim'] is not None
-      assert 'num_classes' not in config or configs['num_classes'] is None
+      assert 'num_classes' not in configs or configs['num_classes'] is None
     if condition_key == 'adm':
-      assert 'context_dim' not in config or configs['context_dim'] is None
-      assert 'num_classes' in config and configs['num_classes'] is not None
+      assert 'context_dim' not in configs or configs['context_dim'] is None
+      assert 'num_classes' in configs and configs['num_classes'] is not None
     self.condition_key = condition_key
     super(DiffusionWrapper, self).__init__()
     self.diffusion_model = UNet(**configs)
