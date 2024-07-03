@@ -41,7 +41,7 @@ class DDPMTrainer(tf.keras.Model):
   def q_sample(self, x, t):
     # forward process
     # p(x_t | x_0) = N(x_t; mu = sqrt(bar{alpha}_t) * x_0, sigma = 1 - bar{alpha}_t * I)
-    noise = tf.random.uniform(shape = inputs.shape)
+    noise = tf.random.uniform(shape = x.shape, dtype = tf.float64)
     return extract_into_tensor(self.sqrt_alphas_cumprod, t, x) * x + extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x) * noise
   def get_loss(self, pred, target, mean = True):
     # pred.shape = (batch, h, w, c)
@@ -54,7 +54,7 @@ class DDPMTrainer(tf.keras.Model):
       raise NotImplementedError("unknown loss type")
     return loss
   def call(self, inputs):
-    t = tf.random.uniform(minval = 0, maxval = self.timesteps, shape = (inputs.shape[0]), dtype = tf.int32)
+    t = tf.random.uniform(minval = 0, maxval = self.timesteps, shape = (inputs.shape[0],), dtype = tf.int32)
     x_noisy = self.q_sample(inputs, t)
     model_out = self.model(x_noisy, t)
     target = noise if self.parameterization == 'eps' else x
@@ -66,5 +66,5 @@ class DDPMTrainer(tf.keras.Model):
 
 if __name__ == "__main__":
   trainer = DDPMTrainer(unet_config = {})
-  loss_dict = trainer(tf.random.normal(shape = (4,32,32,3)))
+  loss_dict = trainer(tf.random.normal(shape = (4,32,32,3), dtype = tf.float64))
   print(loss_dict)

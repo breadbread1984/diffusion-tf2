@@ -155,7 +155,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
     context = tf.keras.Input((None, context_dim)) # context.shape = (batch, context_len, c)
   timesteps = tf.keras.Input(()) # timesteps.shape = (batch,)
   # 1) timestep_embedding
-  freqs = tf.keras.layers.Lambda(lambda x, p, h: tf.math.exp(-tf.math.log(p) * tf.range(h, dtype = tf.float32) / h), arguments = {'p': max_period, 'h': model_channels // 2}, output_shape = (model_channels // 2,))(timesteps) # freqs.shape = (model_channels // 2)
+  freqs = tf.keras.layers.Lambda(lambda x, p, h: tf.math.exp(-tf.math.log(p) * tf.range(h, dtype = tf.float64) / h), arguments = {'p': max_period, 'h': model_channels // 2}, output_shape = (model_channels // 2,))(timesteps) # freqs.shape = (model_channels // 2)
   args = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x[0], axis = -1) * tf.expand_dims(x[1], axis = 0))([timesteps, freqs]) # args.shape = (batch, model_channels // 2)
   embedding = tf.keras.layers.Lambda(lambda x: tf.concat([tf.math.cos(x), tf.math.sin(x)], axis = -1))(args) # embedding.shape = (batch, model_channels // 2 * 2)
   if model_channels % 2:
