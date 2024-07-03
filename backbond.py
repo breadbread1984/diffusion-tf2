@@ -253,10 +253,10 @@ def UNet(input_shape = [32,32,4], **kwargs):
                2: tf.keras.layers.Conv2D,
                3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same', kernel_initializer = tf.keras.initializers.Zeros(), bias_initializer = tf.keras.initializers.Zeros())(results)
   inputs = [x, timesteps] + ([context] if context_dim is not None else []) + ([y] if num_classes is not None else [])
-  return tf.keras.Model(inputs = inputs if context_dim is not None else (x, timesteps, y), outputs = results)
+  return tf.keras.Model(inputs = inputs, outputs = results)
 
 class DiffusionWrapper(tf.keras.Model):
-  def __init__(self, configs, condition_key, ckpt_path):
+  def __init__(self, configs, condition_key, ckpt_path = None):
     assert condition_key in {None, 'concat', 'crossattn', 'hybrid', 'adm'}
     if condition_key in {None, 'concat'}:
       assert 'context_dim' not in config or configs['context_dim'] is None
@@ -270,7 +270,8 @@ class DiffusionWrapper(tf.keras.Model):
     self.condition_key = condition_key
     super(DiffusionWrapper, self).__init__()
     self.diffusion_model = UNet(**configs)
-    self.diffusion_model.load_weights(ckpt_path)
+    if ckpt_path is not None:
+      self.diffusion_model.load_weights(ckpt_path)
   def call(self, x, **kwargs):
     if self.condition_key is None:
       # NOTE: input list: x, t
