@@ -20,3 +20,11 @@ def make_beta_schedule(schedule, n_timestep, linear_start = 1e-4, linear_end = 2
   else:
     raise NotImplementedError("unknown schedule!")
   return betas
+
+def extract_into_tensor(a, t, x):
+  # a.shape = (timesteps,)
+  # t.shape = (batch,)
+  # x.shape = (batch, h, w, c)
+  out = tf.gather(a, t) # out.shape = (batch,)
+  out = tf.reshape(out, [x.shape[0]] + [1,] * len(x.shape[1:])) # out.shape = (batch, 1,1,1)
+  return out
