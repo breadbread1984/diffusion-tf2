@@ -272,27 +272,27 @@ class DiffusionWrapper(tf.keras.Model):
     self.diffusion_model = UNet(**configs)
     if ckpt_path is not None:
       self.diffusion_model.load_weights(ckpt_path)
-  def call(self, x, **kwargs):
+  def call(self, x, t, **kwargs):
     if self.condition_key is None:
       # NOTE: input list: x, t
-      results = self.diffusion_model([x, kwargs.get('t')])
+      results = self.diffusion_model([x, t])
     elif self.condition_key == 'concat':
       # NOTE: input list: x, t, c_concat
       xc = tf.concat([x] + kwargs.get('c_concat'), axis = -1)
-      results = self.diffusion_model([xc, kwargs.get('t')])
+      results = self.diffusion_model([xc, t])
     elif self.condition_key == 'crossattn':
       # NOTE: input list: x, t, c_crossattn
       cc = tf.concat(kwargs.get('c_crossattn'), axis = -1)
-      results = self.diffusion_model([x, kwargs.get('t'), cc])
+      results = self.diffusion_model([x, t, cc])
     elif self.condition_key == 'hybrid':
       # NOTE: input list: x, t, c_concat, c_crossattn
       xc = tf.concat([x] + kwargs.get('c_concat'), axis = -1)
       cc = tf.concat(kwargs.get('c_crossattn'), axis = -1)
-      results = self.diffusion_model([x, kwargs.get('t'), cc])
+      results = self.diffusion_model([x, t, cc])
     elif self.condition_key == 'adm':
       # NOTE: input list: x, t, c_crossattn
       cc = kwargs.get('c_crossattn')[0]
-      results = self.diffusion_model([x, kwargs.get('t'), cc])
+      results = self.diffusion_model([x, t, cc])
     else:
       raise Exception('invalid condition key!')
     return results
