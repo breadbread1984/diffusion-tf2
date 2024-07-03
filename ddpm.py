@@ -5,7 +5,7 @@ from backbone import DiffusionWrapper
 from utils import make_beta_schedule, extract_into_tensor
 
 class DDPMTrainer(tf.keras.Model):
-  def __init__(self, unet_config, condition_key = None, **kwargs):
+  def __init__(self, input_shape, unet_config, condition_key = None, **kwargs):
     timesteps = kwargs.get('timesteps', 1000)
     beta_schedule = kwargs.get('beta_schedule', "linear")
     linear_start = kwargs.get('linear_start', 1e-4)
@@ -23,12 +23,12 @@ class DDPMTrainer(tf.keras.Model):
     self.v_posterior = v_posterior
     self.loss_weight = loss_weight
     self.elbo_weight = elbo_weight
-    self.model = DiffusionWrapper(unet_config, condition_key)
+    self.model = DiffusionWrapper(input_shape, unet_config, condition_key)
     # scheduler
     self.betas = make_beta_schedule(beta_schedule, timesteps, linear_start = linear_start, linear_end = linear_end, cosine_s = cosine_s) # betas.shape = (timesteps)
     self.alphas = 1. - self.betas # alpha_t
     self.alphas_cumprod = tf.math.cumprod(self.alphas, axis = 0) # bar{alpha}_t
-    self.alphas_cumprod_prev = tf.concat([tf.ones([1,], dtype = tf.float64), self.alphas_cumprod[:-1]], axis = 0)
+    self.alphas_cumprod_prev = tf.concat([tf.ones([1,], dtype = tf.float32), self.alphas_cumprod[:-1]], axis = 0)
     self.sqrt_alphas_cumprod = tf.math.sqrt(self.alphas_cumprod) # sqrt(bar{alpha}_t)
     self.sqrt_one_minus_alphas_cumprod = tf.math.sqrt(1. - self.alphas_cumprod) # sqrt(1 - bar{alpha})
     self.log_one_minus_alphas_cumprod = tf.math.log(1. - self.alphas_cumprod)
@@ -41,8 +41,8 @@ class DDPMTrainer(tf.keras.Model):
   def q_sample(self, x, t):
     # forward process
     # p(x_t | x_0) = N(x_t; mu = sqrt(bar{alpha}_t) * x_0, sigma = 1 - bar{alpha}_t * I)
-    noise = tf.random.uniform(shape = x.shape, dtype = tf.float64)
-    return extract_into_tensor(self.sqrt_alphas_cumprod, t, x) * x + extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x) * noise
+    noise = tf.random.uniform(shape = x.shape, dtype = tf.float32)
+    return extract_into_tensor(self.sqrt_alphas_cumprod, t, x) * x + extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x) * noise, noise
   def get_loss(self, pred, target, mean = True):
     # pred.shape = (batch, h, w, c)
     # target.shape = (batch, h, w, c)
@@ -55,7 +55,7 @@ class DDPMTrainer(tf.keras.Model):
     return loss
   def call(self, inputs):
     t = tf.random.uniform(minval = 0, maxval = self.timesteps, shape = (inputs.shape[0],), dtype = tf.int32)
-    x_noisy = self.q_sample(inputs, t)
+    x_noisy, noise = self.q_sample(inputs, t)
     model_out = self.model(x_noisy, t)
     target = noise if self.parameterization == 'eps' else x
     loss = tf.math.reduce_mean(self.get_loss(model_out, target, mean = False), axis = (1,2,3)) # loss.shape = (batch,)
@@ -65,6 +65,7 @@ class DDPMTrainer(tf.keras.Model):
     return {'simple_loss': simple_loss, 'vlb_loss': vlb_loss, 'total_loss': total_loss}
 
 if __name__ == "__main__":
-  trainer = DDPMTrainer(unet_config = {})
-  loss_dict = trainer(tf.random.normal(shape = (4,32,32,3), dtype = tf.float64))
+  #tf.keras.backend.set_floatx('float64')
+  trainer = DDPMTrainer(input_shape = [32,32,3], unet_config = {'out_channels': 3})
+  loss_dict = trainer(tf.random.normal(shape = (4,32,32,3), dtype = tf.float32))
   print(loss_dict)
