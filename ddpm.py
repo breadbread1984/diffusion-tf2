@@ -16,7 +16,7 @@ class DDPMTrainer(tf.keras.Model):
     v_posterior = kwargs.get('v_posterior', 0.)
     loss_weight = kwargs.get('loss_weight', 1.)
     elbo_weight = kwargs.get('elbo_weight', 0.)
-    super(DDPM, self).__init__()
+    super(DDPMTrainer, self).__init__()
     self.timesteps = timesteps
     self.parameterization = parameterization
     self.loss_type = loss_type
@@ -28,13 +28,13 @@ class DDPMTrainer(tf.keras.Model):
     self.betas = make_beta_schedule(beta_schedule, timesteps, linear_start = linear_start, linear_end = linear_end, cosine_s = cosine_s) # betas.shape = (timesteps)
     self.alphas = 1. - self.betas # alpha_t
     self.alphas_cumprod = tf.math.cumprod(self.alphas, axis = 0) # bar{alpha}_t
-    self.alphas_cumprod_prev = tf.concat([tf.ones([1,]), self.alphas_cumprod[:-1]], axis = 0)
+    self.alphas_cumprod_prev = tf.concat([tf.ones([1,], dtype = tf.float64), self.alphas_cumprod[:-1]], axis = 0)
     self.sqrt_alphas_cumprod = tf.math.sqrt(self.alphas_cumprod) # sqrt(bar{alpha}_t)
     self.sqrt_one_minus_alphas_cumprod = tf.math.sqrt(1. - self.alphas_cumprod) # sqrt(1 - bar{alpha})
     self.log_one_minus_alphas_cumprod = tf.math.log(1. - self.alphas_cumprod)
     self.sqrt_recip_alphas_cumprod = tf.math.sqrt(1. / self.alphas_cumprod)
     self.sqrt_recipm1_alphas_cumprod = tf.math.sqrt(1. / self.alphas_cumprod - 1)
-    self.posterior_variance = (1 - self.v_posterior) * self.betas * (1. - alphas_cumprod_prev) / (1. - self.alphas_cumpred) + self.v_posterior * betas # delta^2
+    self.posterior_variance = (1 - self.v_posterior) * self.betas * (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod) + self.v_posterior * self.betas # delta^2
     self.lvlb_weights = self.betas ** 2 / (2 * self.posterior_variance * self.alphas) * (1 - self.alphas_cumprod) if self.parameterization == "eps" else \
                         0.5 * tf.math.sqrt(self.alphas_cumprod) / (2. * 1 - self.alphas_cumprod)
     # eps mode: KL(p(x_{t-1} | x_t, x_0) || p_theta(x_{t-1} | x_t)) = lvlb_weights * (eps - model(x0)) + C, where eps ~ U(0,1)
@@ -63,3 +63,8 @@ class DDPMTrainer(tf.keras.Model):
     vlb_loss = tf.math.reduce_mean(loss * tf.gather(self.lvlb_weights, t) * loss)
     total_loss = simple_loss * self.loss_weight + vlb_loss * self.elbo_weight
     return {'simple_loss': simple_loss, 'vlb_loss': vlb_loss, 'total_loss': total_loss}
+
+if __name__ == "__main__":
+  trainer = DDPMTrainer(unet_config = {})
+  loss_dict = trainer(tf.random.normal(shape = (4,32,32,3)))
+  print(loss_dict)
