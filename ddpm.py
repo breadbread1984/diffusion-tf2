@@ -59,5 +59,7 @@ class DDPMTrainer(tf.keras.Model):
     model_out = self.model(x_noisy, t)
     target = noise if self.parameterization == 'eps' else x
     loss = tf.math.reduce_mean(self.get_loss(model_out, target, mean = False), axis = (1,2,3)) # loss.shape = (batch,)
-    loss = tf.math.reduce_mean(loss) * self.loss_weight + tf.math.reduce_mean(loss * tf.gather(self.lvlb_weights, t) * loss) * self.elbo_weight
-    return loss
+    simple_loss = tf.math.reduce_mean(loss)
+    vlb_loss = tf.math.reduce_mean(loss * tf.gather(self.lvlb_weights, t) * loss)
+    total_loss = simple_loss * self.loss_weight + vlb_loss * self.elbo_weight
+    return {'simple_loss': simple_loss, 'vlb_loss': vlb_loss, 'total_loss': total_loss}
