@@ -25,13 +25,20 @@ def add_Gaussian_noise(img, noise_level1=2, noise_level2=25):
     img = np.clip(img, 0.0, 1.0)
     return img
 
+def cubic(x):
+    absx = np.abs(x)
+    absx2 = absx**2
+    absx3 = absx**3
+    return (1.5*absx3 - 2.5*absx2 + 1) * ((absx <= 1).astype(absx.dtype)) + \
+        (-0.5*absx3 + 2.5*absx2 - 4*absx + 2) * (((absx > 1)*(absx <= 2)).astype(absx.dtype))
+
 def calculate_weights_indices(in_length, out_length, scale, kernel, kernel_width, antialiasing):
     if (scale < 1) and (antialiasing):
         # Use a modified kernel to simultaneously interpolate and antialias- larger kernel width
         kernel_width = kernel_width / scale
 
     # Output-space coordinates
-    x = torch.linspace(1, out_length, out_length)
+    x = np.linspace(1, out_length, out_length)
 
     # Input-space coordinates. Calculate the inverse mapping such that 0.5
     # in output space maps to 0.5 in input space, and 0.5+scale in output
@@ -39,7 +46,7 @@ def calculate_weights_indices(in_length, out_length, scale, kernel, kernel_width
     u = x / scale + 0.5 * (1 - 1 / scale)
 
     # What is the left-most pixel that can be involved in the computation?
-    left = torch.floor(u - kernel_width / 2)
+    left = np.floor(u - kernel_width / 2)
 
     # What is the maximum number of pixels that can be involved in the
     # computation?  Note: it's OK to use an extra pixel here; if the
@@ -49,33 +56,33 @@ def calculate_weights_indices(in_length, out_length, scale, kernel, kernel_width
 
     # The indices of the input pixels involved in computing the k-th output
     # pixel are in row k of the indices matrix.
-    indices = left.view(out_length, 1).expand(out_length, P) + torch.linspace(0, P - 1, P).view(
-        1, P).expand(out_length, P)
+    indices = np.tile(np.reshape(left, (out_length, 1)), (1, P)) + \
+              np.tile(np.reshape(np.linspace(0, P - 1, P), (1, P)), (out_length, 1))
 
     # The weights used to compute the k-th output pixel are in row k of the
     # weights matrix.
-    distance_to_center = u.view(out_length, 1).expand(out_length, P) - indices
+    distance_to_center = np.tile(np.reshape(u, (out_length, 1)), (1, P)) - indices
     # apply cubic kernel
     if (scale < 1) and (antialiasing):
         weights = scale * cubic(distance_to_center * scale)
     else:
         weights = cubic(distance_to_center)
     # Normalize the weights matrix so that each row sums to 1.
-    weights_sum = torch.sum(weights, 1).view(out_length, 1)
+    weights_sum = np.reshape(np.sum(weights, 1), (out_length, 1))
     weights = weights / weights_sum.expand(out_length, P)
 
     # If a column in weights is all zero, get rid of it. only consider the first and last column.
-    weights_zero_tmp = torch.sum((weights == 0), 0)
+    weights_zero_tmp = np.sum((weights == 0), 0)
     if not math.isclose(weights_zero_tmp[0], 0, rel_tol=1e-6):
-        indices = indices.narrow(1, 1, P - 2)
-        weights = weights.narrow(1, 1, P - 2)
+        indices = indices[:,1:P-2]
+        weights = weights[:,1:P-2]
     if not math.isclose(weights_zero_tmp[-1], 0, rel_tol=1e-6):
-        indices = indices.narrow(1, 0, P - 2)
-        weights = weights.narrow(1, 0, P - 2)
-    weights = weights.contiguous()
-    indices = indices.contiguous()
-    sym_len_s = -indices.min() + 1
-    sym_len_e = indices.max() - in_length
+        indices = indices[:,0:P-2]
+        weights = weights[:,0:P-2]
+    weights = np.ascontiguousarray(weights)
+    indices = np.ascontiguousarray(indices)
+    sym_len_s = -np.min(indices) + 1
+    sym_len_e = np.max(indices) - in_length
     indices = indices + sym_len_s - 1
     return weights, indices, int(sym_len_s), int(sym_len_e)
 
