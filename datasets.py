@@ -4,9 +4,11 @@ import random
 import math
 import tensorflow_datasets as tensorflow_datasets
 import numpy as np
+import scipy
 from scipy import ndimage
 from PIL import Image
 import cv2
+import ss
 import albumentations
 
 def add_Gaussian_noise(img, noise_level1=2, noise_level2=25):
@@ -69,7 +71,7 @@ def calculate_weights_indices(in_length, out_length, scale, kernel, kernel_width
         weights = cubic(distance_to_center)
     # Normalize the weights matrix so that each row sums to 1.
     weights_sum = np.reshape(np.sum(weights, 1), (out_length, 1))
-    weights = weights / weights_sum.expand(out_length, P)
+    weights = weights / np.tile(weights_sum, (1, P))
 
     # If a column in weights is all zero, get rid of it. only consider the first and last column.
     weights_zero_tmp = np.sum((weights == 0), 0)
@@ -159,7 +161,7 @@ def imresize_np(img, scale, antialiasing=True):
     if need_squeeze:
         img = np.expand_dims(img, axis = 2)
 
-    in_H, in_W, in_C = img.shape()
+    in_H, in_W, in_C = img.shape
     out_C, out_H, out_W = in_C, math.ceil(in_H * scale), math.ceil(in_W * scale)
     kernel_width = 4
     kernel = 'cubic'
@@ -255,7 +257,7 @@ def shift_pixel(x, sf, upper_left=True):
 
 def add_JPEG_noise(img):
     quality_factor = random.randint(30, 95)
-    img = cv2.cvtColor(util.single2uint(img), cv2.COLOR_RGB2BGR)
+    img = cv2.cvtColor(np.uint8((img.clip(0, 1)*255.).round()), cv2.COLOR_RGB2BGR)
     result, encimg = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), quality_factor])
     img = cv2.imdecode(encimg, 1)
     img = cv2.cvtColor(util.uint2single(img), cv2.COLOR_BGR2RGB)
@@ -351,6 +353,10 @@ def ImageNetSR(split = 'train', **kwargs):
     image = cropper(image = image)["image"]
     image_rescaler = albumentations.SmallestMaxSize(max_size=size, interpolation=cv2.INTER_AREA)
     image = image_rescaler(image = image)["image"]
-    degradation_process =
+    degradation_process = None
 
   ds = tfds.load('imagenet2012', split = split, shuffle_files = True)
+
+if __name__ == "__main__":
+  img = np.random.normal(size = (256,256,3))
+  res = degradation_bsrgan_variant(img)
