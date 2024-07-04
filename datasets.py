@@ -6,9 +6,9 @@ import tensorflow_datasets as tensorflow_datasets
 import numpy as np
 import scipy
 from scipy import ndimage
+from scipy.interpolate import interp2d
 from PIL import Image
 import cv2
-import ss
 import albumentations
 
 def add_Gaussian_noise(img, noise_level1=2, noise_level2=25):
@@ -95,7 +95,7 @@ def fspecial_gaussian(hsize, sigma):
     [x, y] = np.meshgrid(np.arange(-siz[1], siz[1] + 1), np.arange(-siz[0], siz[0] + 1))
     arg = -(x * x + y * y) / (2 * std * std)
     h = np.exp(arg)
-    h[h < scipy.finfo(float).eps * h.max()] = 0
+    h[h < np.finfo(float).eps * h.max()] = 0
     sumh = h.sum()
     if sumh != 0:
         h = h / sumh
@@ -126,7 +126,7 @@ def gm_blur_kernel(mean, cov, size=15):
         for x in range(size):
             cy = y - center + 1
             cx = x - center + 1
-            k[y, x] = ss.multivariate_normal.pdf([cx, cy], mean=mean, cov=cov)
+            k[y, x] = scipy.stats.multivariate_normal.pdf([cx, cy], mean=mean, cov=cov)
 
     k = k / np.sum(k)
     return k
@@ -149,7 +149,7 @@ def add_blur(img, sf=4):
         k = anisotropic_Gaussian(ksize=2 * random.randint(2, 11) + 3, theta=random.random() * np.pi, l1=l1, l2=l2)
     else:
         k = fspecial('gaussian', 2 * random.randint(2, 11) + 3, wd * random.random())
-    img = ndimage.filters.convolve(img, np.expand_dims(k, axis=2), mode='mirror')
+    img = ndimage.convolve(img, np.expand_dims(k, axis=2), mode='mirror')
 
     return img
 
@@ -179,7 +179,7 @@ def imresize_np(img, scale, antialiasing=True):
     # process H dimension
     # symmetric copying
     img_aug = np.zeros((in_H + sym_len_Hs + sym_len_He, in_W, in_C), dtype = np.float32)
-    img_aug[sym_len_Hs:,in_H,:,:] = img
+    img_aug[sym_len_Hs:in_H,:,:] = img
 
     sym_patch = img[:sym_len_Hs, :, :]
     inv_idx = np.arange(sym_patch.shape[0] - 1, -1, -1, dtype = np.int64)
@@ -260,7 +260,7 @@ def add_JPEG_noise(img):
     img = cv2.cvtColor(np.uint8((img.clip(0, 1)*255.).round()), cv2.COLOR_RGB2BGR)
     result, encimg = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), quality_factor])
     img = cv2.imdecode(encimg, 1)
-    img = cv2.cvtColor(util.uint2single(img), cv2.COLOR_BGR2RGB)
+    img = cv2.cvtColor(np.float32(img/255.), cv2.COLOR_BGR2RGB)
     return img
 
 def degradation_bsrgan_variant(image, sf=4, isp_model=None):
@@ -360,3 +360,4 @@ def ImageNetSR(split = 'train', **kwargs):
 if __name__ == "__main__":
   img = np.random.normal(size = (256,256,3))
   res = degradation_bsrgan_variant(img)
+  print(res)
