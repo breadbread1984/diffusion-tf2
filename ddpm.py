@@ -39,7 +39,8 @@ class DDPMTrainer(tf.keras.Model):
                         0.5 * tf.math.sqrt(self.alphas_cumprod) / (2. * 1 - self.alphas_cumprod)
     self.lvlb_weights = tf.where(tf.keras.ops.isinf(self.lvlb_weights),
                                  tf.fill(self.lvlb_weights.shape,tf.math.reduce_min(self.lvlb_weights)),
-                                 self.lvlb_weights)
+                                 self.lvlb_weights) # lvlb_weights[0] = lvlb_weights[1]
+    assert not tf.math.reduce_all(tf.keras.ops.isnan(self.lvlb_weights))
     # eps mode: KL(p(x_{t-1} | x_t, x_0) || p_theta(x_{t-1} | x_t)) = lvlb_weights * (eps - model(x0)) + C, where eps ~ U(0,1)
   def q_sample(self, x, t):
     # forward process
