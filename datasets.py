@@ -19,8 +19,8 @@ def ImageNetSR(split = 'train', **kwargs):
     min_side_len = tf.math.reduce_min(tf.shape(image)[:2])
     crop_side_len = tf.cast(tf.cast(min_side_len, dtype = tf.float32) * tf.random.uniform(minval = min_crop_f, maxval = max_crop_f, shape = ()), dtype = tf.int32)
     if crop_method == 'center crop':
-      h_start_pos = (image.shape[0] - crop_side_len) // 2
-      w_start_pos = (image.shape[1] - crop_side_len) // 2
+      h_start_pos = (tf.shape(image)[0] - crop_side_len) // 2
+      w_start_pos = (tf.shape(image)[1] - crop_side_len) // 2
       image = image[h_start_pos:h_start_pos + crop_side_len, w_start_pos:w_start_pos + crop_side_len]
     elif crop_method == 'random crop':
       image = tf.image.random_crop(image, size = (crop_side_len, crop_side_len, 3))
@@ -41,12 +41,12 @@ def ImageNetSR(split = 'train', **kwargs):
 
 if __name__ == "__main__":
   import cv2
-  valset = ImageNetSR(split = 'validation').batch(4)
+  valset = ImageNetSR(split = 'validation', crop_method = 'center crop').batch(4)
   for batch in valset:
     image = batch['image'][0]
     LR_image = batch['LR_image'][0]
     image = tf.cast(127.5 * (image + 1.), dtype = tf.uint8).numpy()
     LR_image = tf.cast(127.5 * (LR_image + 1.), dtype = tf.uint8).numpy()
-    cv2.imshow('image', image)
-    cv2.imshow('LR_image', LR_image)
+    cv2.imshow('image', image[:,:,::-1])
+    cv2.imshow('LR_image', LR_image[:,:,::-1])
     cv2.waitKey()
