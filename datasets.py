@@ -15,7 +15,7 @@ def ImageNetSR(split = 'train', **kwargs):
   def parse_function(example):
     image, label = example['image'], example['label']
 
-    # 3) random or center crop patch of size sample in [min_crop_f * min_side_length, max_crop_f * min_side_length]
+    # 1) random or center crop patch of size sample in [min_crop_f * min_side_length, max_crop_f * min_side_length]
     min_side_len = tf.math.reduce_min(tf.shape(image)[:2])
     crop_side_len = tf.cast(tf.cast(min_side_len, dtype = tf.float32) * tf.random.uniform(minval = min_crop_f, maxval = max_crop_f, shape = ()), dtype = tf.int32)
     if crop_method == 'center crop':
@@ -24,22 +24,29 @@ def ImageNetSR(split = 'train', **kwargs):
       image = image[h_start_pos:h_start_pos + crop_side_len, w_start_pos:w_start_pos + crop_side_len]
     elif crop_method == 'random crop':
       image = tf.image.random_crop(image, size = (crop_side_len, crop_side_len, 3))
-    # 4) scale image to make min_side_length equals to given size
+    # 2) scale image to make min_side_length equals to given size
     image = tf.image.resize(image, (size, size), method = tf.image.ResizeMethod.AREA)
-    # 5) downscale image to make dimension to (h / downscale_f, w / downscale_f)
+    # 3) downscale image to make dimension to (h / downscale_f, w / downscale_f)
     LR_image = tf.image.resize(image, (int(size / downscale_f), int(size / downscale_f)), {
       "nearest": tf.image.ResizeMethod.NEAREST_NEIGHBOR,
       "bilinear": tf.image.ResizeMethod.BILINEAR,
       "bicubic": tf.image.ResizeMethod.BICUBIC,
       "area": tf.image.ResizeMethod.AREA,
       "lanczos": tf.image.ResizeMethod.LANCZOS5}[degradation])
-    # 6) scale value of tensor to [-1,1]
+    # 4) scale value of tensor to [-1,1]
     return {'image': tf.cast(image/127.5 - 1.0, dtype = tf.float32), 'LR_image': tf.cast(LR_image/127.5 - 1.0, dtype = tf.float32)}
 
   ds = tfds.load('imagenet2012', split = split, shuffle_files = True).map(parse_function)
   return ds
 
 if __name__ == "__main__":
-  valset = ImageNetSR(split = 'validation')
-  for sample in valset:
-    print(sample)
+  import cv2
+  valset = ImageNetSR(split = 'validation').batch(4)
+  for batch in valset:
+    image = batch['image'][0]
+    LR_image = batch['LR_image'][0]
+    image = tf.cast(127.5 * (image + 1.), dtype = tf.uint8).numpy()
+    LR_image = tf.cast(127.5 * (LR_image + 1.), dtype = tf.uint8).numpy()
+    cv2.imshow('image', image)
+    cv2.imshow('LR_image', LR_image)
+    cv2.waitKey()
