@@ -68,6 +68,38 @@ class DDPMTrainer(tf.keras.Model):
     total_loss = simple_loss * self.loss_weight + vlb_loss * self.elbo_weight
     return {'simple_loss': simple_loss, 'vlb_loss': vlb_loss, 'total_loss': total_loss}
 
+class DDPMInfer(tf.keras.Model):
+  def __init__(self, input_shape, unet_config, condition_key = None, **kwargs):
+    timesteps = kwargs.get('timesteps', 1000)
+    beta_schedule = kwargs.get('beta_schedule', "linear")
+    linear_start = kwargs.get('linear_start', 1e-4)
+    linear_end = kwargs.get('linear_end', 2e-2)
+    cosine_s = kwargs.get('cosine_s', 8e-3)
+    parameterization = kwargs.get('parameterization', 'eps') # eps or x0
+    super(DDPMInfer, self).__init__()
+    self.input_shape = input_shape
+    self.timesteps = timesteps
+    self.parameterization = parameterization
+    self.model = DiffusionWrapper(input_shape, unet_config, condition_key)
+    # scheduler
+    self.betas = make_beta_schedule(beta_schedule, timesteps, linear_start = linear_start, linear_end = linear_end, cosine_s = cosine_s) # betas.shape = (timesteps)
+    self.alphas = 1. - self.betas # alpha_t
+    self.alphas_cumprod = tf.math.cumprod(self.alphas, axis = 0) # bar{alpha}_t
+    self.alphas_cumprod_prev = tf.concat([tf.ones([1,], dtype = tf.float32), self.alphas_cumprod[:-1]], axis = 0)
+    self.sqrt_alphas_cumprod = tf.math.sqrt(self.alphas_cumprod) # sqrt(bar{alpha}_t)
+    self.sqrt_one_minus_alphas_cumprod = tf.math.sqrt(1. - self.alphas_cumprod) # sqrt(1 - bar{alpha})
+    self.log_one_minus_alphas_cumprod = tf.math.log(1. - self.alphas_cumprod)
+    self.sqrt_recip_alphas_cumprod = tf.math.sqrt(1. / self.alphas_cumprod)
+    self.sqrt_recipm1_alphas_cumprod = tf.math.sqrt(1. / self.alphas_cumprod - 1)
+  def call(self, inputs):
+    x_t = tf.random.uniform(shape = self.input_shape, dtype = tf.float32)
+    for t in range(self.timesteps)[::-1]:
+      eps_t = self.model(x_t, t)
+      noise = tf.random.uniform(shape = self.input_shape, dtype = tf.float32)
+      x_tm1 = 1 / tf.math.sqrt(self.alphas[t]) * (x_t - self.betas[t] / self.sqrt_one_minus_alphas_cumprod[t] * eps_t) + \
+              self.betas[t] * (1. - self.alphas_cumprod[t-1]) / (1. - self.alphas_cumprod[t]) * noise
+    return x_tm1
+
 if __name__ == "__main__":
   #tf.keras.backend.set_floatx('float64')
   trainer = DDPMTrainer(input_shape = [32,32,3], unet_config = {'out_channels': 3})
