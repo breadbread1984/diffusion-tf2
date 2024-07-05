@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from absl import app, flags
+from os.path import exists, join
 import tensorflow as tf
 from datasets import ImageNetSR
 from ddpm import DDPMTrainer
@@ -37,7 +38,16 @@ def add_options():
   flags.DEFINE_boolean('resblock_updown', default = False, help = 'whether use convolution in upsampling and downsampling')
   flags.DEFINE_integer('n_embed', default = None, help = 'number of code if the model outputs code prediction')
   # trainer options
-
+  flags.DEFINE_integer('timesteps', default = 1000, help = 'timesteps for diffusion')
+  flags.DEFINE_enum('beta_schedule', default = 'linear', enum_values = {'linear','cosine','sqrt_linear','sqrt'}, help = 'available scheduler')
+  flags.DEFINE_float('linear_start', default = 1e-4, help = 'start value for linear scheduler')
+  flags.DEFINE_float('linear_end', default = 2e-2, help = 'end value for linear scheduler')
+  flags.DEFINE_float('cosine_s', default = 8e-3, help = 'frequency for cosine scheduler')
+  flags.DEFINE_enum('parameterization', default = 'eps', enum_values = {'eps','x0'}, help = 'target of unet')
+  flags.DEFINE_enum('loss_type', default = 'l2', enum_values = {'l1', 'l2'}, help = 'loss type')
+  flags.DEFINE_float('v_posterior', default = 0., help = 'weight for choosing posterior variance as sigma = (1-v) * beta_tilde + v * beta')
+  flags.DEFINE_float('loss_weight', default = 1., help = 'weight of simple loss')
+  flags.DEFINE_float('elbo_weight', default = 0., help = 'weight of likelihood lower bound loss')
 
 def main(unused_argv):
   crop_method = {'center': 'center crop', 'random': 'random crop'}[FLAGS.crop]
@@ -58,12 +68,18 @@ def main(unused_argv):
   unet_config_keys = {'model_channels','out_channels','num_res_blocks','num_transformer_blocks','dropout','channel_mult','conv_resample',
                       'num_classes','num_heads','num_head_channels','max_period','use_scale_shift_norm','transformer_depth','context_dim',
                       'use_spatial_transformer','resblock_updown','n_embed'}
+  trainer_config_keys = {'timesteps','beta_schedule','linear_start','linear_end','cosine_s','parameterization','loss_type','v_posterior',
+                         'loss_weight','elbo_weight'}
   unet_config = {k: (FLAGS[k].value if k != 'channel_mult' else [int(v) for v in FLAGS[k].value]) for k in unet_config_keys}
-  model = DDPMTrainer(input_shape = [FLAGS.size, FLAGS.size, 3], unet_config = unet_config)
+  trainer_config = {k: FLAGS[k].value for k in trainer_config_keys}
+  model = DDPMTrainer(input_shape = [FLAGS.size, FLAGS.size, 3], unet_config = unet_config, **trainer_config)
+  if exists(FLAGS.ckpt): model.load_weights(join(FLAGS.ckpt, 'variables', 'variables'))
   callbacks = [
     tf.keras.callbacks.TensorBoard(log_dir = FLAGS.ckpt),
     tf.keras.callbacks.ModelCheckpoint(filepath = FLAGS.ckpt, save_freq = FLAGS.save_freq)
   ]
+  model.fit(trainset, epochs = 200, validation_data = valset, callbacks = callbacks);
+  model.save_weights('weights.h5')
 
 if __name__ == "__main__":
   add_options()
