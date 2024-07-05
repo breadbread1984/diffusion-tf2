@@ -34,7 +34,9 @@ def ImageNetSR(split = 'train', **kwargs):
       "area": tf.image.ResizeMethod.AREA,
       "lanczos": tf.image.ResizeMethod.LANCZOS5}[degradation])
     # 4) scale value of tensor to [-1,1]
-    return {'image': tf.cast(image/127.5 - 1.0, dtype = tf.float32), 'LR_image': tf.cast(LR_image/127.5 - 1.0, dtype = tf.float32)}
+    # 'LR_image': tf.cast(LR_image/127.5 - 1.0, dtype = tf.float32)
+    image = tf.cast(image/127.5 - 1.0, dtype = tf.float32)
+    return image, image
 
   ds = tfds.load('imagenet2012', split = split, shuffle_files = True).map(parse_function)
   return ds
@@ -42,11 +44,8 @@ def ImageNetSR(split = 'train', **kwargs):
 if __name__ == "__main__":
   import cv2
   valset = ImageNetSR(split = 'validation', crop_method = 'center crop').batch(4)
-  for batch in valset:
-    image = batch['image'][0]
-    LR_image = batch['LR_image'][0]
+  for image, label in valset:
+    image = image[0]
     image = tf.cast(127.5 * (image + 1.), dtype = tf.uint8).numpy()
-    LR_image = tf.cast(127.5 * (LR_image + 1.), dtype = tf.uint8).numpy()
     cv2.imshow('image', image[:,:,::-1])
-    cv2.imshow('LR_image', LR_image[:,:,::-1])
     cv2.waitKey()
