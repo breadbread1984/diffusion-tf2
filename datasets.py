@@ -6,7 +6,7 @@ import tensorflow_datasets as tfds
 def ImageNetSR(split = 'train', **kwargs):
   assert split in {'train', 'validation'}
   size = kwargs.get('size', 256)
-  downscale_f = kwargs.get('downscale_f', 4)
+  downscale_f = kwargs.get('downscale_f', 4.)
   degradation = kwargs.get('degradation', 'nearest') # <interpolation_fn>
   min_crop_f = kwargs.get('min_crop_f', 0.5)
   max_crop_f = kwargs.get('max_crop_f', 1.)
