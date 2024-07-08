@@ -45,7 +45,7 @@ class DDPMTrainer(tf.keras.Model):
   def q_sample(self, x, t):
     # forward process
     # p(x_t | x_0) = N(x_t; mu = sqrt(bar{alpha}_t) * x_0, sigma = 1 - bar{alpha}_t * I)
-    noise = tf.random.uniform(shape = x.shape, dtype = tf.float32)
+    noise = tf.random.uniform(shape = tf.shape(x), dtype = tf.float32)
     return extract_into_tensor(self.sqrt_alphas_cumprod, t, x) * x + extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x) * noise, noise
   def get_loss(self, pred, target, mean = True):
     # pred.shape = (batch, h, w, c)
