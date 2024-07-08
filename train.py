@@ -15,7 +15,7 @@ def add_options():
   flags.DEFINE_float('lr', default = 4.5e-6, help = 'base learning rate')
   flags.DEFINE_integer('decay_steps', default = 200000, help = 'decay steps')
   # dataset options
-  flags.DEFINE_integer('size', default = 256, help = 'dataset size')
+  flags.DEFINE_integer('size', default = 128, help = 'dataset size')
   flags.DEFINE_float('downscale_f', default = 4., help = 'downscale rate')
   flags.DEFINE_enum('degradation', default = 'nearest', enum_values = {'nearest', 'bilinear', 'bicubic', 'area', 'lanczos'}, help = 'method to degradation')
   flags.DEFINE_float('min_crop_f', default = 0.5, help = 'min crop ratio')
