@@ -58,7 +58,7 @@ class DDPMTrainer(tf.keras.Model):
       raise NotImplementedError("unknown loss type")
     return loss
   def call(self, inputs):
-    t = tf.random.uniform(minval = 0, maxval = self.timesteps, shape = (inputs.shape[0],), dtype = tf.int32)
+    t = tf.random.uniform(minval = 0, maxval = self.timesteps, shape = (tf.shape(inputs)[0],), dtype = tf.int32)
     x_noisy, noise = self.q_sample(inputs, t)
     model_out = self.model(x_noisy, t)
     target = noise if self.parameterization == 'eps' else x
