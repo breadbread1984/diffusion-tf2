@@ -26,5 +26,5 @@ def extract_into_tensor(a, t, x):
   # t.shape = (batch,)
   # x.shape = (batch, h, w, c)
   out = tf.gather(a, t) # out.shape = (batch,)
-  out = tf.reshape(out, [x.shape[0]] + [1,] * len(x.shape[1:])) # out.shape = (batch, 1,1,1)
+  out = tf.reshape(out, [tf.shape(x)[0]] + [1,] * len(x.shape[1:])) # out.shape = (batch, 1,1,1)
   return out
