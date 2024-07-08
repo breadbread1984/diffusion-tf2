@@ -77,7 +77,8 @@ def main(unused_argv):
   trainer_config = {k: FLAGS[k].value for k in trainer_config_keys}
   model = DDPMTrainer(input_shape = [FLAGS.size, FLAGS.size, 3], unet_config = unet_config, **trainer_config)
   optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.CosineDecayRestarts(FLAGS.lr, first_decay_steps = FLAGS.decay_steps))
-  model.compile(optimizer = optimizer, loss = {'total_loss': lambda label, pred: pred, 'simple_loss': lambda label, pred: pred, 'vlb_loss': lambda label, pred: pred})
+  minimize = lambda label, pred: pred
+  model.compile(optimizer = optimizer, loss = {'total_loss': minimize, 'simple_loss': minimize, 'vlb_loss': minimize})
   if exists(FLAGS.ckpt): model.load_weights(join(FLAGS.ckpt, 'variables', 'variables'))
   callbacks = [
     tf.keras.callbacks.TensorBoard(log_dir = FLAGS.ckpt),
