@@ -9,7 +9,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
   skip = x
   emb = tf.keras.Input((emb_channels,)) # emb.shape = (batch, emb_channels)
   results = tf.keras.layers.GroupNormalization()(x)
-  results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(x)
+  results = tf.keras.layers.Lambda(lambda x: tf.nn.silu(x))(x)
   if resample == 'up':
     tensor_dim = len(input_shape) - 1
     size = 2 if tensor_dim in {1,2} else (1,2,2)
@@ -31,7 +31,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
   results = {1: tf.keras.layers.Conv1D,
              2: tf.keras.layers.Conv2D,
              3: tf.keras.layers.Conv3D}[tensor_dim](out_channels, kernel_size = 3, padding = 'same')(results) # results.shape = input_shape[:-1] + [out_channels]
-  emb_results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(emb)
+  emb_results = tf.keras.layers.Lambda(lambda x: tf.nn.silu(x))(emb)
   emb_results = tf.keras.layers.Dense(out_channels * 2 if use_scale_shift_norm else out_channels)(emb_results) # emb_results.shape = (batch, out_channels)
   emb_results = tf.keras.layers.Reshape([1,] * (len(input_shape) - 1) + [emb_results.shape[-1],])(emb_results) # emb_results.shape = (batch, 1,..,1, out_channels)
   if use_scale_shift_norm:
@@ -41,7 +41,7 @@ def ResBlock(input_shape, out_channels, emb_channels, dropout, use_scale_shift_n
   else:
     results = tf.keras.layers.Lambda(lambda x: x[0] + x[1])([results, emb_results]) # results.shape = (batch, h, w, out_channels)
     results = tf.keras.layers.GroupNormalization()(results) # results.shape = (batch, h, w, out_channels)
-  results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(results)
+  results = tf.keras.layers.Lambda(lambda x: tf.nn.silu(x))(results)
   results = tf.keras.layers.Dropout(rate = dropout)(results)
   tensor_dim = len(input_shape) - 1
   results = {1: tf.keras.layers.Conv1D,
@@ -160,7 +160,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
   embedding = tf.keras.layers.Lambda(lambda x: tf.concat([tf.math.cos(x), tf.math.sin(x)], axis = -1))(args) # embedding.shape = (batch, model_channels // 2 * 2)
   if model_channels % 2:
     embedding = tf.keras.layers.Lambda(lambda x: tf.concat([x, tf.zeros_like(x[:,:1])], axis = -1))(embedding) # embedding.shape = (batch, model_channels)
-  emb = tf.keras.layers.Dense(model_channels * 4, activation = tf.keras.activations.silu)(embedding)
+  emb = tf.keras.layers.Dense(model_channels * 4, activation = tf.nn.silu)(embedding)
   emb = tf.keras.layers.Dense(model_channels * 4)(emb) # emb.shape = (batch, 4 * model_channels)
   if num_classes is not None:
     y = tf.keras.Input(()) # y.shape = (batch,)
@@ -247,7 +247,7 @@ def UNet(input_shape = [32,32,4], **kwargs):
     results = tf.keras.layers.Dense(n_embed)(results)
   else:
     results = tf.keras.layers.GroupNormalization()(results)
-    results = tf.keras.layers.Lambda(lambda x: tf.keras.ops.silu(x))(results)
+    results = tf.keras.layers.Lambda(lambda x: tf.nn.silu(x))(results)
     tensor_dim = len(input_shape) - 1
     results = {1: tf.keras.layers.Conv1D,
                2: tf.keras.layers.Conv2D,

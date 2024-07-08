@@ -37,10 +37,10 @@ class DDPMTrainer(tf.keras.Model):
     self.posterior_variance = (1 - self.v_posterior) * self.betas * (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod) + self.v_posterior * self.betas # delta^2
     self.lvlb_weights = self.betas ** 2 / (2 * self.posterior_variance * self.alphas) * (1 - self.alphas_cumprod) if self.parameterization == "eps" else \
                         0.5 * tf.math.sqrt(self.alphas_cumprod) / (2. * 1 - self.alphas_cumprod)
-    self.lvlb_weights = tf.where(tf.keras.ops.isinf(self.lvlb_weights),
+    self.lvlb_weights = tf.where(tf.raw_ops.IsInf(self.lvlb_weights),
                                  tf.fill(self.lvlb_weights.shape,tf.math.reduce_min(self.lvlb_weights)),
                                  self.lvlb_weights) # lvlb_weights[0] = lvlb_weights[1]
-    assert not tf.math.reduce_all(tf.keras.ops.isnan(self.lvlb_weights))
+    assert not tf.math.reduce_all(tf.raw_ops.IsNan(self.lvlb_weights))
     # eps mode: KL(p(x_{t-1} | x_t, x_0) || p_theta(x_{t-1} | x_t)) = lvlb_weights * (eps - model(x0)) + C, where eps ~ U(0,1)
   def q_sample(self, x, t):
     # forward process
@@ -91,6 +91,15 @@ class DDPMInfer(tf.keras.Model):
     self.log_one_minus_alphas_cumprod = tf.math.log(1. - self.alphas_cumprod)
     self.sqrt_recip_alphas_cumprod = tf.math.sqrt(1. / self.alphas_cumprod)
     self.sqrt_recipm1_alphas_cumprod = tf.math.sqrt(1. / self.alphas_cumprod - 1)
+  def p_sample(self, x, t, clip_denoised = True, repeat_noise = False):
+    # backward process
+    model_out = self.model(x, t)
+    if self.parameterization == 'eps':
+      noise = model_out
+      x_recon = extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x) * x - extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x) * noise
+    elif self.parameterization == 'x0':
+      x_recon = model_out
+    x_recon = tf.clip_by_value(x_recon, -1., 1.) if clip_denoised else x_recon
   def call(self, inputs):
     x_t = tf.random.uniform(shape = self.input_shape, dtype = tf.float32)
     for t in range(self.timesteps)[::-1]:
