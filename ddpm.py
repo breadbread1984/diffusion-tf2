@@ -69,7 +69,7 @@ class DDPMTrainer(tf.keras.Model):
     return {'simple_loss': simple_loss, 'vlb_loss': vlb_loss, 'total_loss': total_loss}
 
 class DDPMInfer(tf.keras.Model):
-  def __init__(self, input_shape, unet_config, condition_key = None, **kwargs):
+  def __init__(self, input_shape, unet_config, ckpt_path, condition_key = None, **kwargs):
     timesteps = kwargs.get('timesteps', 1000)
     beta_schedule = kwargs.get('beta_schedule', "linear")
     linear_start = kwargs.get('linear_start', 1e-4)
@@ -82,7 +82,7 @@ class DDPMInfer(tf.keras.Model):
     self.timesteps = timesteps
     self.parameterization = parameterization
     self.v_posterior = v_posterior
-    self.model = DiffusionWrapper(input_shape, unet_config, condition_key)
+    self.model = DiffusionWrapper(input_shape, unet_config, condition_key, ckpt_path)
     # scheduler
     self.betas = make_beta_schedule(beta_schedule, timesteps, linear_start = linear_start, linear_end = linear_end, cosine_s = cosine_s) # betas.shape = (timesteps)
     self.alphas = 1. - self.betas # alpha_t
