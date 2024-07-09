@@ -78,7 +78,7 @@ class DDPMInfer(tf.keras.Model):
     parameterization = kwargs.get('parameterization', 'eps') # eps or x0
     v_posterior = kwargs.get('v_posterior', 0.)
     super(DDPMInfer, self).__init__()
-    self.input_shape = input_shape
+    self.input_shape_ = input_shape
     self.timesteps = timesteps
     self.parameterization = parameterization
     self.v_posterior = v_posterior
@@ -110,11 +110,11 @@ class DDPMInfer(tf.keras.Model):
     posterior_mean = extract_into_tensor(self.posterior_mean_coef1, t, x) * x_recon + \
                      extract_into_tensor(self.posterior_mean_coef2, t, x) * x
     posterior_log_variance = extract_into_tensor(self.posterior_log_variance_clipped, t, x)
-    noise = tf.stack([tf.random.uniform(shape = self.input_shape, dtype = tf.float32)] * tf.shape(x)[0], axis = 0)
+    noise = tf.stack([tf.random.uniform(shape = self.input_shape_, dtype = tf.float32)] * tf.shape(x)[0], axis = 0)
     nonzero_mask = tf.cond(tf.equal(t,0), true_fn = lambda: tf.zeros_like(x) , false_fn = lambda:tf.ones_like(x)) # zero for t == 0 ones for t != 0
     return posterior_mean + nonzero_mask * tf.math.exp(0.5 * posterior_log_variance) * noise
   def call(self, ):
-    x_t = tf.random.uniform(shape = self.input_shape, dtype = tf.float32)
+    x_t = tf.random.uniform(shape = self.input_shape_, dtype = tf.float32)
     for t in range(self.timesteps)[::-1]:
       x_tm1 = self.p_sample(x_t, t)
       x_t = x_tm1
