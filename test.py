@@ -39,8 +39,8 @@ def main(unused_argv):
   infer = DDPMInfer(input_shape = (FLAGS.size,FLAGS.size, 3), unet_config = unet_config, ckpt = FLAGS.ckpt)
   if not exists(FLAGS.ckpt): raise Exception('not existing checkpoint!')
   infer.load_weights(join(FLAGS.ckpt, 'variables', 'variables'))
-  x_t = tf.random.uniform(shape = (FLAGS.size,FLAGS.size, 3), dtype = tf.float32)
-  img = infer(x_t).numpy()
+  x_t = tf.random.uniform(shape = (1, FLAGS.size, FLAGS.size, 3), dtype = tf.float32)
+  img = infer(x_t).numpy()[0]
   cv2.imwrite('generated.png', img)
   cv2.imshow('generated image', img)
   cv2.waitKey()
