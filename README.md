@@ -13,3 +13,9 @@ python3 -m pip install -r requirements.txt
 ```shell
 python3 train.py
 ```
+
+## Sampling image
+
+```shell
+python3 test.py --ckpt ckpt
+```
