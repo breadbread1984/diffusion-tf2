@@ -113,11 +113,12 @@ class DDPMInfer(tf.keras.Model):
     noise = tf.stack([tf.random.uniform(shape = self.input_shape, dtype = tf.float32)] * tf.shape(x)[0], axis = 0)
     nonzero_mask = tf.cond(tf.equal(t,0), true_fn = lambda: tf.zeros_like(x) , false_fn = lambda:tf.ones_like(x)) # zero for t == 0 ones for t != 0
     return posterior_mean + nonzero_mask * tf.math.exp(0.5 * posterior_log_variance) * noise
-  def call(self, inputs):
+  def call(self, ):
     x_t = tf.random.uniform(shape = self.input_shape, dtype = tf.float32)
     for t in range(self.timesteps)[::-1]:
       x_tm1 = self.p_sample(x_t, t)
       x_t = x_tm1
+    x_t = tf.reverse(tf.cast(127.5 * (x_t + 1.), dtype = tf.uint8), axis = -1)
     return x_t
 
 if __name__ == "__main__":
