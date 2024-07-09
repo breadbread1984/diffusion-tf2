@@ -118,7 +118,7 @@ class DDPMInfer(tf.keras.Model):
     for t in range(self.timesteps)[::-1]:
       x_tm1 = self.p_sample(x_t, t)
       x_t = x_tm1
-    x_t = tf.reverse(tf.cast(127.5 * (x_t + 1.), dtype = tf.uint8), axis = -1)
+    x_t = tf.reverse(tf.cast(127.5 * (x_t + 1.), dtype = tf.uint8), axis = [-1])
     return x_t
 
 if __name__ == "__main__":
