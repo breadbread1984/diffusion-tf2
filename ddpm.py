@@ -110,7 +110,7 @@ class DDPMInfer(tf.keras.Model):
     posterior_mean = extract_into_tensor(self.posterior_mean_coef1, t, x) * x_recon + \
                      extract_into_tensor(self.posterior_mean_coef2, t, x) * x
     posterior_log_variance = extract_into_tensor(self.posterior_log_variance_clipped, t, x)
-    noise = tf.tile(tf.expand_dims(tf.random.uniform(shape = self.input_shape_, dtype = tf.float32), axis = 0), axis = [tf.shape(x)[0]] + [1,] * len(self.input_shape_))
+    noise = tf.tile(tf.expand_dims(tf.random.uniform(shape = self.input_shape_, dtype = tf.float32), axis = 0), multiples = [tf.shape(x)[0]] + [1,] * len(self.input_shape_))
     nonzero_mask = tf.cond(tf.equal(t,0), true_fn = lambda: tf.zeros_like(x, dtype = tf.float32) , false_fn = lambda:tf.ones_like(x, dtype = tf.float32)) # zero for t == 0 ones for t != 0
     return posterior_mean + nonzero_mask * tf.math.exp(0.5 * posterior_log_variance) * noise
   def call(self, x_t):
