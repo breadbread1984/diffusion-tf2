@@ -3,6 +3,7 @@
 from os.path import exists, join
 from absl import flags, app
 import cv2
+import tensorflow as tf
 from ddpm import DDPMInfer
 
 FLAGS = flags.FLAGS
