@@ -39,6 +39,7 @@ def main(unused_argv):
   if not exists(FLAGS.ckpt): raise Exception('not existing checkpoint!')
   infer.load_weights(join(FLAGS.ckpt, 'variables', 'variables'))
   img = infer().numpy()
+  cv2.imwrite('generated.png', img)
   cv2.imshow('generated image', img)
   cv2.waitKey()
 
