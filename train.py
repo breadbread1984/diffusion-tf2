@@ -10,12 +10,12 @@ FLAGS = flags.FLAGS
 
 def add_options():
   flags.DEFINE_string('ckpt', default = 'ckpt', help = 'path to checkpoint')
-  flags.DEFINE_integer('batch', default = 1, help = 'batch size')
+  flags.DEFINE_integer('batch', default = 14, help = 'batch size')
   flags.DEFINE_integer('save_freq', default = 1000, help = 'save checkpoint frequency')
   flags.DEFINE_float('lr', default = 4.5e-6, help = 'base learning rate')
   flags.DEFINE_integer('decay_steps', default = 200000, help = 'decay steps')
   # dataset options
-  flags.DEFINE_integer('size', default = 64, help = 'dataset size')
+  flags.DEFINE_integer('size', default = 32, help = 'dataset size')
   flags.DEFINE_float('downscale_f', default = 4., help = 'downscale rate')
   flags.DEFINE_enum('degradation', default = 'nearest', enum_values = {'nearest', 'bilinear', 'bicubic', 'area', 'lanczos'}, help = 'method to degradation')
   flags.DEFINE_float('min_crop_f', default = 0.5, help = 'min crop ratio')
