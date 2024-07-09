@@ -8,7 +8,7 @@ from ddpm import DDPMInfer
 FLAGS = flags.FLAGS
 
 def add_options():
-  flags.DEFINE_string('ckpt', default = None, help = 'path to ckpt')
+  flags.DEFINE_string('ckpt', default = 'ckpt', help = 'path to ckpt')
   flags.DEFINE_string('output', default = 'output.png', help = 'output_path')
   flags.DEFINE_integer('size', default = 64, help = 'dataset size')
   # model options
