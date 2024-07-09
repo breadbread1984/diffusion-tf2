@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from os.path import exists
+from os.path import exists, join
 from absl import flags, app
 import cv2
 from ddpm import DDPMInfer
