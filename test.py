@@ -11,7 +11,7 @@ FLAGS = flags.FLAGS
 def add_options():
   flags.DEFINE_string('ckpt', default = 'ckpt', help = 'path to ckpt')
   flags.DEFINE_string('output', default = 'output.png', help = 'output_path')
-  flags.DEFINE_integer('size', default = 64, help = 'dataset size')
+  flags.DEFINE_integer('size', default = 32, help = 'dataset size')
   # model options
   flags.DEFINE_integer('model_channels', default = 256, help = 'model base channel')
   flags.DEFINE_integer('out_channels', default = 3, help = 'output channel')
