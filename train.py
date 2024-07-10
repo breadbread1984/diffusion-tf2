@@ -12,8 +12,8 @@ def add_options():
   flags.DEFINE_string('ckpt', default = 'ckpt', help = 'path to checkpoint')
   flags.DEFINE_integer('batch', default = 14, help = 'batch size')
   flags.DEFINE_integer('save_freq', default = 1000, help = 'save checkpoint frequency')
-  flags.DEFINE_float('lr', default = 4.5e-6, help = 'base learning rate')
-  flags.DEFINE_integer('decay_steps', default = 200000, help = 'decay steps')
+  flags.DEFINE_float('lr', default = 1e-3, help = 'base learning rate')
+  flags.DEFINE_integer('decay_steps', default = 915120, help = 'decay steps')
   # dataset options
   flags.DEFINE_integer('size', default = 32, help = 'dataset size')
   flags.DEFINE_float('downscale_f', default = 4., help = 'downscale rate')
@@ -76,7 +76,7 @@ def main(unused_argv):
   unet_config = {k: (FLAGS[k].value if k != 'channel_mult' else [int(v) for v in FLAGS[k].value]) for k in unet_config_keys}
   trainer_config = {k: FLAGS[k].value for k in trainer_config_keys}
   model = DDPMTrainer(input_shape = [FLAGS.size, FLAGS.size, 3], unet_config = unet_config, **trainer_config)
-  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.CosineDecayRestarts(FLAGS.lr, first_decay_steps = FLAGS.decay_steps))
+  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.CosineDecayRestarts(FLAGS.lr, first_decay_steps = FLAGS.decay_steps, t_mul = 2))
   minimize = lambda label, pred: pred
   model.compile(optimizer = optimizer, loss = {'total_loss': minimize, 'simple_loss': minimize, 'vlb_loss': minimize})
   if exists(FLAGS.ckpt): model.load_weights(join(FLAGS.ckpt, 'variables', 'variables'))
