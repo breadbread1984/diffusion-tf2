@@ -81,8 +81,8 @@ def main(unused_argv):
   model.compile(optimizer = optimizer, loss = {'total_loss': minimize, 'simple_loss': minimize, 'vlb_loss': minimize}, run_eagerly = True)
   if exists(FLAGS.ckpt): model.load_weights(FLAGS.ckpt)
   callbacks = [
-    tf.keras.callbacks.TensorBoard(log_dir = FLAGS.ckpt),
-    tf.keras.callbacks.ModelCheckpoint(filepath = 'tensorboard', save_freq = FLAGS.save_freq, save_weights_only = True)
+    tf.keras.callbacks.TensorBoard(log_dir = 'logs'),
+    tf.keras.callbacks.ModelCheckpoint(filepath = FLAGS.ckpt, save_freq = FLAGS.save_freq, save_weights_only = True)
   ]
   model.fit(trainset, epochs = 200, validation_data = valset, callbacks = callbacks)
   model.save_weights('weights.h5')
