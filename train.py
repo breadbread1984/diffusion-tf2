@@ -78,13 +78,13 @@ def main(unused_argv):
   model = DDPMTrainer(input_shape = [FLAGS.size, FLAGS.size, 3], unet_config = unet_config, **trainer_config)
   optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.CosineDecayRestarts(FLAGS.lr, first_decay_steps = FLAGS.decay_steps, t_mul = 2))
   minimize = lambda label, pred: pred
-  model.compile(optimizer = optimizer, loss = {'total_loss': minimize, 'simple_loss': minimize, 'vlb_loss': minimize})
+  model.compile(optimizer = optimizer, loss = {'total_loss': minimize, 'simple_loss': minimize, 'vlb_loss': minimize}, run_eagerly = True)
   if exists(FLAGS.ckpt): model.load_weights(FLAGS.ckpt)
   callbacks = [
     tf.keras.callbacks.TensorBoard(log_dir = FLAGS.ckpt),
     tf.keras.callbacks.ModelCheckpoint(filepath = FLAGS.ckpt, save_freq = FLAGS.save_freq, save_weights_only = True)
   ]
-  model.fit(trainset, epochs = 200, validation_data = valset, callbacks = callbacks, run_eagerly = True);
+  model.fit(trainset, epochs = 200, validation_data = valset, callbacks = callbacks)
   model.save_weights('weights.h5')
 
 if __name__ == "__main__":
