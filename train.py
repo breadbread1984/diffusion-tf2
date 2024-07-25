@@ -9,7 +9,7 @@ from ddpm import DDPMTrainer
 FLAGS = flags.FLAGS
 
 def add_options():
-  flags.DEFINE_string('ckpt', default = 'ckpt.h5', help = 'path to checkpoint')
+  flags.DEFINE_string('ckpt', default = 'ckpt.weights.h5', help = 'path to checkpoint')
   flags.DEFINE_integer('batch', default = 14, help = 'batch size')
   flags.DEFINE_integer('save_freq', default = 1000, help = 'save checkpoint frequency')
   flags.DEFINE_float('lr', default = 1e-3, help = 'base learning rate')
