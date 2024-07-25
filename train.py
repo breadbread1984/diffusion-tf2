@@ -9,7 +9,7 @@ from ddpm import DDPMTrainer
 FLAGS = flags.FLAGS
 
 def add_options():
-  flags.DEFINE_string('ckpt', default = 'ckpt.keras', help = 'path to checkpoint')
+  flags.DEFINE_string('ckpt', default = 'ckpt', help = 'path to checkpoint')
   flags.DEFINE_integer('batch', default = 14, help = 'batch size')
   flags.DEFINE_integer('save_freq', default = 1000, help = 'save checkpoint frequency')
   flags.DEFINE_float('lr', default = 1e-3, help = 'base learning rate')
@@ -79,12 +79,12 @@ def main(unused_argv):
   optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.CosineDecayRestarts(FLAGS.lr, first_decay_steps = FLAGS.decay_steps, t_mul = 2))
   minimize = lambda label, pred: pred
   model.compile(optimizer = optimizer, loss = {'total_loss': minimize, 'simple_loss': minimize, 'vlb_loss': minimize})
-  if exists(FLAGS.ckpt): model.load(FLAGS.ckpt)
+  if exists(FLAGS.ckpt): model.load_weights(join(FLAGS.ckpt, 'variables', 'variables'))
   callbacks = [
     tf.keras.callbacks.TensorBoard(log_dir = FLAGS.ckpt),
     tf.keras.callbacks.ModelCheckpoint(filepath = FLAGS.ckpt, save_freq = FLAGS.save_freq)
   ]
-  model.fit(trainset, epochs = 200, validation_data = valset, callbacks = callbacks);
+  model.fit(trainset, epochs = 200, validation_data = valset, callbacks = callbacks, run_eagerly = True);
   model.save_weights('weights.h5')
 
 if __name__ == "__main__":
