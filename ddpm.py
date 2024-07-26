@@ -99,7 +99,7 @@ class DDPMInfer(tf.keras.Model):
     self.posterior_mean_coef2 = (1. - self.alphas_cumprod_prev) * tf.math.sqrt(self.alphas) / (1. - self.alphas_cumprod) # (1 - bar{alpha}_{t-1}) * sqrt(alpha_t) / (1 - bar{alpha}_t)
   def p_sample(self, x, t, clip_denoised = True, repeat_noise = False):
     # backward process
-    model_out = self.model(x, t)
+    model_out = self.model(x, t = t)
     if self.parameterization == 'eps':
       noise = model_out
       # x_recon = 1/sqrt(bar{alpha}) * eps - sqrt(1 - bar{alpha})/sqrt(bar{alpha}) * noise
