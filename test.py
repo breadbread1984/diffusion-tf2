@@ -9,7 +9,7 @@ from ddpm import DDPMInfer
 FLAGS = flags.FLAGS
 
 def add_options():
-  flags.DEFINE_string('ckpt', default = 'ckpt', help = 'path to ckpt')
+  flags.DEFINE_string('ckpt', default = 'ckpt.weights.h5', help = 'path to ckpt')
   flags.DEFINE_string('output', default = 'output.png', help = 'output_path')
   flags.DEFINE_integer('size', default = 32, help = 'dataset size')
   # model options
@@ -38,7 +38,7 @@ def main(unused_argv):
   unet_config = {k: (FLAGS[k].value if k != 'channel_mult' else [int(v) for v in FLAGS[k].value]) for k in unet_config_keys}
   infer = DDPMInfer(input_shape = (FLAGS.size,FLAGS.size, 3), unet_config = unet_config, ckpt = FLAGS.ckpt)
   if not exists(FLAGS.ckpt): raise Exception('not existing checkpoint!')
-  infer.load_weights(join(FLAGS.ckpt, 'variables', 'variables'))
+  infer.load_weights(FLAGS.ckpt)
   x_t = tf.random.uniform(shape = (1, FLAGS.size, FLAGS.size, 3), dtype = tf.float32)
   img = infer(x_t).numpy()[0]
   cv2.imwrite('generated.png', img)
