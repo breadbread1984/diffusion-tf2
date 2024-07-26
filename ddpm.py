@@ -116,7 +116,7 @@ class DDPMInfer(tf.keras.Model):
   def call(self, x_t):
     #x_t = tf.expand_dims(tf.random.uniform(shape = self.input_shape_, dtype = tf.float32), axis = 0)
     for t in range(self.timesteps)[::-1]:
-      x_tm1 = self.p_sample(x_t, t)
+      x_tm1 = self.p_sample(x_t, tf.reshape(t,(1,)))
       x_t = x_tm1
     x_t = tf.reverse(tf.cast(127.5 * (x_t + 1.), dtype = tf.uint8), axis = [-1])
     return x_t
